@@ -1,8 +1,8 @@
 -- ECW E-Commerce Database Schema
 -- MySQL
 
-CREATE DATABASE IF NOT EXISTS ecw_database;
-USE ecw_database;
+CREATE DATABASE IF NOT EXISTS e_commerce;
+USE e_commerce;
 
 -- Users table
 CREATE TABLE IF NOT EXISTS users (
