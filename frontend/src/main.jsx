@@ -20,8 +20,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
               toastOptions={{
                 duration: 3000,
                 style: { borderRadius: '12px', padding: '12px 16px', fontSize: '14px' },
-                success: { iconTheme: { primary: '#8a6c55', secondary: 'white' } },
-                error: { iconTheme: { primary: '#7c4019', secondary: 'white' } }
+                success: { iconTheme: { primary: '#22c55e', secondary: 'white' } },
+                error: { iconTheme: { primary: '#ef4444', secondary: 'white' } }
               }}
             />
           </CartProvider>

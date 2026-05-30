@@ -96,14 +96,14 @@
   /* === Gradient text === */
   .gradient-text {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(135deg, #ddb38a, #e19b61, #e29645, #b87a4a);
+    background-image: linear-gradient(135deg, #818cf8, #6366f1, #a855f7, #ec4899);
     background-size: 200% 200%;
     animation: gradientX 4s ease infinite;
   }
 
   .gradient-text-warm {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(135deg, #e5d4c4, #ddb38a, #e29645);
+    background-image: linear-gradient(135deg, #fbbf24, #f97316, #ef4444);
     background-size: 200% 200%;
     animation: gradientX 4s ease infinite;
   }
@@ -180,14 +180,6 @@
     scrollbar-width: none;
   }
   .scrollbar-hide::-webkit-scrollbar { display: none; }
-
-  /* Hero mesh gradient */
-  .mesh-gradient {
-    background: radial-gradient(ellipse at 20% 50%, rgba(225,155,97,0.38) 0%, transparent 60%),
-                radial-gradient(ellipse at 80% 20%, rgba(221,179,138,0.28) 0%, transparent 55%),
-                radial-gradient(ellipse at 60% 80%, rgba(184,122,74,0.26) 0%, transparent 55%),
-                linear-gradient(135deg, #201f22 0%, #3f1c09 42%, #201f22 100%);
-  }
 
   /* Noise overlay for texture */
   .noise-overlay::before {

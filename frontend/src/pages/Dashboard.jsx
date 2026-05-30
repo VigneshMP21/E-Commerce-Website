@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { HiOutlineUser, HiOutlineShoppingBag, HiOutlineHeart, HiOutlineLocationMarker, HiOutlineLogout } from 'react-icons/hi';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -7,6 +7,7 @@ import { formatDate } from '../utils/helpers';
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [addresses, setAddresses] = useState([]);
   const [activeTab, setActiveTab] = useState('overview');
@@ -21,6 +22,11 @@ export default function Dashboard() {
     { id: 'orders', label: 'Orders', icon: HiOutlineShoppingBag },
     { id: 'addresses', label: 'Addresses', icon: HiOutlineLocationMarker }
   ];
+
+  const handleLogout = () => {
+    logout();
+    navigate('/', { replace: true });
+  };
 
   return (
     <div className="container-custom py-6 md:py-8">
@@ -38,7 +44,7 @@ export default function Dashboard() {
               </button>
             ))}
             <hr className="my-2 border-gray-100 dark:border-gray-800" />
-            <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+            <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
               <HiOutlineLogout size={18} /> Logout
             </button>
           </div>

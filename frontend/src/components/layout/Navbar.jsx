@@ -32,6 +32,12 @@ export default function Navbar() {
     }
   };
 
+  const handleLogout = () => {
+    logout();
+    setUserMenuOpen(false);
+    navigate('/', { replace: true });
+  };
+
   return (
     <header className="sticky top-0 z-50 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800">
       <div className="container-custom">
@@ -110,7 +116,7 @@ export default function Navbar() {
                         <Link to="/admin" className="block px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 text-primary-600" onClick={() => setUserMenuOpen(false)}>Admin Panel</Link>
                       )}
                       <hr className="my-1 border-gray-100 dark:border-gray-800" />
-                      <button onClick={() => { logout(); setUserMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">Logout</button>
+                      <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">Logout</button>
                     </div>
                   </>
                 )}

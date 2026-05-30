@@ -1,73 +1,3 @@
-const primary = {
-  50: '#fbf7f2',
-  100: '#f5eadf',
-  200: '#e5d4c4',
-  300: '#ddb38a',
-  400: '#e19b61',
-  500: '#e29645',
-  600: '#7c4019',
-  700: '#6b4529',
-  800: '#3f1c09',
-  900: '#201f22',
-  950: '#201f22'
-};
-
-const neutral = {
-  50: '#fbf7f2',
-  100: '#f3e8dd',
-  200: '#e5d4c4',
-  300: '#c8b29f',
-  400: '#8a6c55',
-  500: '#6b4529',
-  600: '#7c4019',
-  700: '#3f1c09',
-  800: '#201f22',
-  900: '#201f22',
-  950: '#201f22'
-};
-
-const copper = {
-  50: '#fff8ef',
-  100: '#f7eadc',
-  200: '#e5d4c4',
-  300: '#ddb38a',
-  400: '#e19b61',
-  500: '#e29645',
-  600: '#b87a4a',
-  700: '#7c4019',
-  800: '#6b4529',
-  900: '#3f1c09',
-  950: '#201f22'
-};
-
-const taupe = {
-  50: '#fbf7f2',
-  100: '#efe2d6',
-  200: '#e5d4c4',
-  300: '#c8b29f',
-  400: '#ddb38a',
-  500: '#8a6c55',
-  600: '#6b4529',
-  700: '#7c4019',
-  800: '#3f1c09',
-  900: '#201f22',
-  950: '#201f22'
-};
-
-const clay = {
-  50: '#fbf7f2',
-  100: '#f2dfcf',
-  200: '#e5d4c4',
-  300: '#ddb38a',
-  400: '#e19b61',
-  500: '#b87a4a',
-  600: '#7c4019',
-  700: '#6b4529',
-  800: '#3f1c09',
-  900: '#201f22',
-  950: '#201f22'
-};
-
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
@@ -75,26 +5,30 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary,
-        gray: neutral,
-        zinc: neutral,
-        neutral,
-        stone: neutral,
-        amber: copper,
-        orange: copper,
-        yellow: copper,
-        rose: clay,
-        red: clay,
-        pink: clay,
-        violet: taupe,
-        purple: taupe,
-        indigo: taupe,
-        blue: taupe,
-        sky: taupe,
-        cyan: taupe,
-        emerald: taupe,
-        green: taupe,
-        teal: taupe
+        primary: {
+          50: '#eef2ff',
+          100: '#e0e7ff',
+          200: '#c7d2fe',
+          300: '#a5b4fc',
+          400: '#818cf8',
+          500: '#6366f1',
+          600: '#4f46e5',
+          700: '#4338ca',
+          800: '#3730a3',
+          900: '#312e81',
+          950: '#1e1b4b'
+        },
+        rose: {
+          50: '#fff1f2',
+          100: '#ffe4e6',
+          400: '#fb7185',
+          500: '#f43f5e',
+          600: '#e11d48',
+        },
+        amber: {
+          400: '#fbbf24',
+          500: '#f59e0b',
+        }
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
@@ -151,8 +85,8 @@ export default {
           '100%': { backgroundPosition: '200% 0' }
         },
         glow: {
-          '0%': { boxShadow: '0 0 5px rgba(124,64,25,0.4), 0 0 20px rgba(226,150,69,0.2)' },
-          '100%': { boxShadow: '0 0 20px rgba(226,150,69,0.65), 0 0 60px rgba(124,64,25,0.35)' }
+          '0%': { boxShadow: '0 0 5px rgba(99,102,241,0.4), 0 0 20px rgba(99,102,241,0.2)' },
+          '100%': { boxShadow: '0 0 20px rgba(99,102,241,0.8), 0 0 60px rgba(99,102,241,0.4)' }
         },
         bounceSoft: {
           '0%, 100%': { transform: 'translateY(0)' },

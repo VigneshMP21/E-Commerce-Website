@@ -116,7 +116,7 @@ export default function Shop() {
             <button onClick={clearFilters} className="btn-secondary text-sm w-full">Clear Filters</button>
           </div>
           {/* Overlay for mobile */}
-          {showFilters && <div className="fixed inset-0 bg-primary-950/55 -z-10 lg:hidden" onClick={() => setShowFilters(false)} />}
+          {showFilters && <div className="fixed inset-0 bg-black/50 -z-10 lg:hidden" onClick={() => setShowFilters(false)} />}
         </aside>
 
         {/* Product grid */}

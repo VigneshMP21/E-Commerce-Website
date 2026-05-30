@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { motion, useInView, useAnimation, AnimatePresence } from 'framer-motion';
+import { motion, useInView, AnimatePresence } from 'framer-motion';
 import {
   HiOutlineArrowRight,
   HiOutlineShoppingBag,
@@ -13,13 +13,16 @@ import {
   HiOutlineSparkles,
   HiOutlineLightningBolt,
   HiOutlineGift,
-  HiOutlineChevronLeft,
-  HiOutlineChevronRight,
   HiOutlineCheckCircle,
 } from 'react-icons/hi';
 import api from '../services/api';
 import ProductCard from '../components/product/ProductCard';
 import ProductSkeleton from '../components/ui/Skeleton';
+import heroImage1 from '../assets/home_images/image1.png';
+import heroImage2 from '../assets/home_images/image2.png';
+import heroImage3 from '../assets/home_images/image3.png';
+import heroImage4 from '../assets/home_images/image4.png';
+import heroImage5 from '../assets/home_images/image5.png';
 
 /* ═══════════════════════════════════════
    DATA
@@ -163,44 +166,7 @@ const marqueeItems = [
   '🌟 1 Million+ Products in Stock',
 ];
 
-const heroSlides = [
-  {
-    badge: '🔥 Summer Sale — Up to 70% Off',
-    title: 'Discover Premium',
-    highlight: 'Products',
-    subtitle: "You'll Love",
-    desc: 'Shop the latest trends with exclusive discounts. Free shipping on all orders over $100.',
-    cta: 'Shop Now',
-    ctaLink: '/shop',
-    bg: 'mesh-gradient',
-    accentFrom: 'from-violet-400',
-    accentTo: 'to-purple-300',
-  },
-  {
-    badge: '⚡ Limited Time Flash Deals',
-    title: 'Unbeatable',
-    highlight: 'Deals',
-    subtitle: 'Every Single Day',
-    desc: 'Lightning-fast deals on top brands. Don\'t miss out — stocks are limited!',
-    cta: 'View Deals',
-    ctaLink: '/deals',
-    bg: 'bg-gradient-to-br from-[#201f22] via-[#3f1c09] to-[#6b4529]',
-    accentFrom: 'from-rose-400',
-    accentTo: 'to-pink-300',
-  },
-  {
-    badge: '✨ New Season, New Style',
-    title: 'Fashion',
-    highlight: 'Forward',
-    subtitle: 'Collections 2026',
-    desc: 'Explore curated fashion collections from top designers. Style meets affordability.',
-    cta: 'Explore Fashion',
-    ctaLink: '/shop?category=fashion',
-    bg: 'bg-gradient-to-br from-[#201f22] via-[#6b4529] to-[#3f1c09]',
-    accentFrom: 'from-amber-400',
-    accentTo: 'to-orange-300',
-  },
-];
+const heroBackgroundImages = [heroImage1, heroImage2, heroImage3, heroImage4, heroImage5];
 
 /* ═══════════════════════════════════════
    HOOKS
@@ -233,34 +199,22 @@ function useScrollReveal() {
    SUB-COMPONENTS
 ═══════════════════════════════════════ */
 
-// Animated floating particles in hero
-function Particles() {
-  const particles = [
-    { size: 80,  top: '10%', left: '5%',  delay: 0,   opacity: 0.15, color: '#e19b61' },
-    { size: 120, top: '70%', left: '90%', delay: 2,   opacity: 0.10, color: '#ddb38a' },
-    { size: 60,  top: '40%', left: '85%', delay: 1,   opacity: 0.20, color: '#e29645' },
-    { size: 40,  top: '80%', left: '10%', delay: 3,   opacity: 0.12, color: '#e5d4c4' },
-    { size: 90,  top: '15%', left: '70%', delay: 1.5, opacity: 0.08, color: '#b87a4a' },
-    { size: 50,  top: '55%', left: '25%', delay: 2.5, opacity: 0.15, color: '#e19b61' },
-  ];
+function HeroBackgroundMarquee({ image }) {
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {particles.map((p, i) => (
-        <div
-          key={i}
-          className="absolute rounded-full"
-          style={{
-            width: p.size,
-            height: p.size,
-            top: p.top,
-            left: p.left,
-            backgroundColor: p.color,
-            opacity: p.opacity,
-            animation: `float ${6 + p.delay}s ease-in-out ${p.delay}s infinite`,
-            filter: 'blur(2px)',
-          }}
+    <div className="absolute inset-0 overflow-hidden bg-primary-950">
+      <AnimatePresence initial={false}>
+        <motion.img
+          key={image}
+          src={image}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full object-contain object-center"
+          initial={{ x: '100%' }}
+          animate={{ x: '0%' }}
+          exit={{ x: '-100%' }}
+          transition={{ duration: 0.8, ease: 'easeInOut' }}
         />
-      ))}
+      </AnimatePresence>
     </div>
   );
 }
@@ -323,7 +277,7 @@ function Stars({ count = 5 }) {
           key={i}
           size={14}
           className={i < count ? 'text-amber-400 fill-amber-400' : 'text-gray-300 dark:text-gray-700'}
-          style={{ fill: i < count ? '#e29645' : 'none' }}
+          style={{ fill: i < count ? '#fbbf24' : 'none' }}
         />
       ))}
     </div>
@@ -336,7 +290,7 @@ function Stars({ count = 5 }) {
 export default function Home() {
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [heroSlide, setHeroSlide] = useState(0);
+  const [heroBgIndex, setHeroBgIndex] = useState(0);
   const [testimonialIdx, setTestimonialIdx] = useState(0);
   const [emailInput, setEmailInput] = useState('');
   const [subscribed, setSubscribed] = useState(false);
@@ -364,9 +318,8 @@ export default function Home() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Auto-rotate hero slides
   useEffect(() => {
-    const id = setInterval(() => setHeroSlide((p) => (p + 1) % heroSlides.length), 6000);
+    const id = setInterval(() => setHeroBgIndex((p) => (p + 1) % heroBackgroundImages.length), 3000);
     return () => clearInterval(id);
   }, []);
 
@@ -375,8 +328,6 @@ export default function Home() {
     const id = setInterval(() => setTestimonialIdx((p) => (p + 1) % testimonials.length), 5000);
     return () => clearInterval(id);
   }, []);
-
-  const slide = heroSlides[heroSlide];
 
   const handleSubscribe = (e) => {
     e.preventDefault();
@@ -414,127 +365,18 @@ export default function Home() {
       {/* ══════════════════════════════════
           HERO SECTION
       ══════════════════════════════════ */}
-      <section className={`relative min-h-[90vh] flex items-center ${slide.bg} overflow-hidden`}>
-        <Particles />
-
-        {/* Decorative rings */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full border border-white/5 pointer-events-none" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[900px] rounded-full border border-white/5 pointer-events-none" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full border border-white/5 pointer-events-none" />
-
-        {/* Background product image */}
-        <div
-          className="absolute right-0 bottom-0 w-[55%] h-full opacity-25 lg:opacity-30"
-          style={{
-            backgroundImage: `url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1200')`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            maskImage: 'linear-gradient(to left, rgba(32,31,34,0.8) 0%, transparent 100%)',
-            WebkitMaskImage: 'linear-gradient(to left, rgba(32,31,34,0.8) 0%, transparent 100%)',
-          }}
-        />
-
-        <div className="container-custom relative z-10 py-24 lg:py-32">
-          <div className="max-w-3xl">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={heroSlide}
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.6 }}
-              >
-                {/* Badge */}
-                <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full text-sm font-semibold text-white mb-7 glass-card">
-                  <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse shadow-[0_0_6px_2px_rgba(226,150,69,0.6)]" />
-                  {slide.badge}
-                </div>
-
-                {/* Headline */}
-                <h1 className="text-5xl md:text-6xl lg:text-7xl font-black leading-[1.1] mb-6 text-white">
-                  {slide.title}{' '}
-                  <span className={`gradient-text`}>{slide.highlight}</span>
-                  <br />
-                  <span className="text-white/70 text-4xl md:text-5xl font-bold">{slide.subtitle}</span>
-                </h1>
-
-                <p className="text-lg md:text-xl text-white/70 mb-10 max-w-xl leading-relaxed">
-                  {slide.desc}
-                </p>
-
-                {/* CTAs */}
-                <div className="flex flex-wrap gap-4">
-                  <Link
-                    to={slide.ctaLink}
-                    className="group inline-flex items-center gap-3 px-8 py-4 bg-white text-primary-700 font-bold rounded-2xl hover:bg-gray-50 transition-all duration-300 hover:shadow-2xl hover:shadow-primary-500/20 active:scale-[0.98] btn-shimmer"
-                  >
-                    {slide.cta}
-                    <HiOutlineArrowRight
-                      size={20}
-                      className="group-hover:translate-x-1 transition-transform duration-300"
-                    />
-                  </Link>
-                  <Link
-                    to="/deals"
-                    className="btn-ghost-white gap-2"
-                  >
-                    <HiOutlineFire size={20} className="text-amber-400" />
-                    Hot Deals
-                  </Link>
-                </div>
-
-                {/* Trust indicators */}
-                <div className="flex items-center gap-6 mt-10">
-                  {[
-                    { icon: HiOutlineCheckCircle, text: 'Authentic Products' },
-                    { icon: HiOutlineShieldCheck, text: 'Buyer Protection' },
-                    { icon: HiOutlineTruck, text: 'Fast Delivery' },
-                  ].map(({ icon: Icon, text }) => (
-                    <div key={text} className="flex items-center gap-1.5 text-white/60 text-sm">
-                      <Icon size={16} className="text-green-400" />
-                      {text}
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            </AnimatePresence>
+      <section className="bg-gray-50 dark:bg-gray-950 pt-4 md:pt-6">
+        <div className="container-custom">
+          <div className="relative mx-auto max-w-6xl aspect-[16/9] overflow-hidden bg-primary-950">
+            <HeroBackgroundMarquee image={heroBackgroundImages[heroBgIndex]} />
           </div>
         </div>
-
-        {/* Slide dots */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10">
-          {heroSlides.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setHeroSlide(i)}
-              className={`transition-all duration-300 rounded-full ${
-                i === heroSlide
-                  ? 'w-8 h-2.5 bg-white'
-                  : 'w-2.5 h-2.5 bg-white/30 hover:bg-white/60'
-              }`}
-            />
-          ))}
-        </div>
-
-        {/* Slide arrows */}
-        <button
-          onClick={() => setHeroSlide((p) => (p - 1 + heroSlides.length) % heroSlides.length)}
-          className="absolute left-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-all"
-        >
-          <HiOutlineChevronLeft size={20} />
-        </button>
-        <button
-          onClick={() => setHeroSlide((p) => (p + 1) % heroSlides.length)}
-          className="absolute right-4 top-1/2 -translate-y-1/2 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm transition-all"
-        >
-          <HiOutlineChevronRight size={20} />
-        </button>
       </section>
 
       {/* ══════════════════════════════════
           FEATURE CARDS
       ══════════════════════════════════ */}
-      <section className="container-custom -mt-12 relative z-10">
+      <section className="container-custom py-12 md:py-16">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {features.map((f, i) => (
             <motion.div
@@ -682,7 +524,7 @@ export default function Home() {
             initial="hidden"
             animate={catVisible ? 'visible' : 'hidden'}
             variants={{ visible: { transition: { staggerChildren: 0.08 } } }}
-            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4"
+            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 lg:auto-rows-[13rem] gap-4"
           >
             {categories.map((cat, i) => {
               const isLarge = i < 2;
@@ -691,12 +533,11 @@ export default function Home() {
                   key={cat.name}
                   variants={scaleIn}
                   custom={i}
-                  className={isLarge ? 'col-span-1 md:col-span-1 lg:col-span-2 row-span-1' : ''}
+                  className={isLarge ? 'col-span-1 md:col-span-1 lg:col-span-2 lg:row-span-2' : 'lg:col-span-1 lg:row-span-1'}
                 >
                   <Link
                     to={`/shop?category=${cat.slug}`}
-                    className="group relative block rounded-3xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500"
-                    style={{ aspectRatio: isLarge ? '3/4' : '4/5' }}
+                    className={`group relative block h-full rounded-3xl overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 ${isLarge ? 'aspect-[3/4] lg:aspect-auto' : 'aspect-[4/5] lg:aspect-auto'}`}
                   >
                     <img
                       src={cat.image}
@@ -750,7 +591,7 @@ export default function Home() {
               alt="New Collection"
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-primary-950/85 via-primary-950/55 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent" />
             <div className="absolute inset-0 p-8 flex flex-col justify-center">
               <span className="text-amber-400 text-xs font-bold uppercase tracking-widest mb-2">New Arrivals</span>
               <h3 className="text-white text-2xl md:text-3xl font-black mb-4 leading-tight">
@@ -965,7 +806,7 @@ export default function Home() {
             Trusted by top brands worldwide
           </p>
           <div className="marquee-container opacity-50 dark:opacity-30">
-            {['NIKE', 'APPLE', 'SAMSUNG', 'SONY', 'ADIDAS', 'PUMA', 'LG', 'CANON', 'DELL', 'HP'].map((b, idx) => (
+            {['NIKE', 'APPLE', 'SAMSUNG', 'SONY', 'ADIDAS', 'PUMA', 'LG', 'CANON', 'DELL', 'HP', 'ASUS', 'LENOVO', 'ACER', 'MICROSOFT', 'GOOGLE', 'ONEPLUS', 'XIAOMI', 'OPPO', 'VIVO', 'REALME', 'HUAWEI', 'INTEL', 'AMD', 'NVIDIA', 'BOSE', 'JBL', 'PANASONIC', 'PHILIPS', 'TOSHIBA', 'NOKIA'].map((b, idx) => (
               <div key={idx} className="marquee-track">
                 <span className="inline-block px-10 text-2xl font-black text-gray-400 dark:text-gray-600 tracking-tight whitespace-nowrap">
                   {b}
