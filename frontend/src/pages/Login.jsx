@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { HiOutlineMail, HiOutlineLockClosed, HiOutlineEye, HiOutlineEyeOff } from 'react-icons/hi';
 import toast from 'react-hot-toast';
+import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
@@ -10,8 +11,17 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, googleLogin } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (window.google) return;
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    document.body.appendChild(script);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,7 +39,50 @@ export default function Login() {
   };
 
   const handleGoogleLogin = () => {
-    toast.error('Google OAuth requires backend configuration');
+    if (!window.google || !window.google.accounts || !window.google.accounts.oauth2) {
+      toast.error('Google Sign-In is still loading. Please try again in a few seconds.');
+      return;
+    }
+
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      console.error('Google Client ID is missing. Restart your Vite development server.');
+      toast.error('Google Sign-In configuration missing. Please restart your frontend development server.');
+      return;
+    }
+
+    const client = window.google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: 'email profile openid',
+      callback: async (tokenResponse) => {
+        if (tokenResponse.error) {
+          console.error('Google Auth Token Error:', tokenResponse);
+          toast.error(`Google authentication failed: ${tokenResponse.error_description || tokenResponse.error}`);
+          return;
+        }
+        
+        setLoading(true);
+        try {
+          const userInfo = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+          });
+          
+          const { email, name, sub: googleId, picture: avatar } = userInfo.data;
+          
+          await googleLogin({ email, name, googleId, avatar });
+          toast.success('Successfully logged in with Google');
+          navigate('/');
+        } catch (err) {
+          console.error('Google Login Error:', err);
+          const errorMsg = err.response?.data?.message || err.message || 'Google login failed';
+          toast.error(errorMsg);
+        } finally {
+          setLoading(false);
+        }
+      }
+    });
+
+    client.requestAccessToken();
   };
 
   return (

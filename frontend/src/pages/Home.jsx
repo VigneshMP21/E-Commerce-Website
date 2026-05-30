@@ -10,7 +10,7 @@ const features = [
   { icon: HiOutlineTruck, title: 'Free Shipping', desc: 'Free delivery on orders above $100' },
   { icon: HiOutlineShieldCheck, title: 'Secure Payment', desc: '100% secure transactions' },
   { icon: HiOutlineRefresh, title: 'Easy Returns', desc: '30-day return policy' },
-  { icon: HiOutlineHeadphones, title: '24/7 Support', desc: 'Round-the-clock assistance' }
+  { icon: HiOutlineSupport, title: '24/7 Support', desc: 'Round-the-clock assistance' }
 ];
 
 const categories = [
