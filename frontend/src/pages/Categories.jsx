@@ -32,7 +32,7 @@ export default function Categories() {
             <div className="relative aspect-[16/9] overflow-hidden">
               <img src={categoryImages[cat.name] || 'https://via.placeholder.com/600'} alt={cat.name}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-primary-950/70 via-transparent to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-6">
                 <h3 className="text-white font-bold text-xl">{cat.name}</h3>
                 <p className="text-white/70 text-sm">{cat.product_count} products</p>

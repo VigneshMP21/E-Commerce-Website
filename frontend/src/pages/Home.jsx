@@ -184,7 +184,7 @@ const heroSlides = [
     desc: 'Lightning-fast deals on top brands. Don\'t miss out — stocks are limited!',
     cta: 'View Deals',
     ctaLink: '/deals',
-    bg: 'bg-gradient-to-br from-[#0f172a] via-[#1e1b4b] to-[#0c0a1e]',
+    bg: 'bg-gradient-to-br from-[#201f22] via-[#3f1c09] to-[#6b4529]',
     accentFrom: 'from-rose-400',
     accentTo: 'to-pink-300',
   },
@@ -196,7 +196,7 @@ const heroSlides = [
     desc: 'Explore curated fashion collections from top designers. Style meets affordability.',
     cta: 'Explore Fashion',
     ctaLink: '/shop?category=fashion',
-    bg: 'bg-gradient-to-br from-[#1a0533] via-[#2d1b69] to-[#0d0d1a]',
+    bg: 'bg-gradient-to-br from-[#201f22] via-[#6b4529] to-[#3f1c09]',
     accentFrom: 'from-amber-400',
     accentTo: 'to-orange-300',
   },
@@ -236,12 +236,12 @@ function useScrollReveal() {
 // Animated floating particles in hero
 function Particles() {
   const particles = [
-    { size: 80,  top: '10%', left: '5%',  delay: 0,   opacity: 0.15, color: '#818cf8' },
-    { size: 120, top: '70%', left: '90%', delay: 2,   opacity: 0.10, color: '#a78bfa' },
-    { size: 60,  top: '40%', left: '85%', delay: 1,   opacity: 0.20, color: '#6366f1' },
-    { size: 40,  top: '80%', left: '10%', delay: 3,   opacity: 0.12, color: '#c4b5fd' },
-    { size: 90,  top: '15%', left: '70%', delay: 1.5, opacity: 0.08, color: '#e879f9' },
-    { size: 50,  top: '55%', left: '25%', delay: 2.5, opacity: 0.15, color: '#818cf8' },
+    { size: 80,  top: '10%', left: '5%',  delay: 0,   opacity: 0.15, color: '#e19b61' },
+    { size: 120, top: '70%', left: '90%', delay: 2,   opacity: 0.10, color: '#ddb38a' },
+    { size: 60,  top: '40%', left: '85%', delay: 1,   opacity: 0.20, color: '#e29645' },
+    { size: 40,  top: '80%', left: '10%', delay: 3,   opacity: 0.12, color: '#e5d4c4' },
+    { size: 90,  top: '15%', left: '70%', delay: 1.5, opacity: 0.08, color: '#b87a4a' },
+    { size: 50,  top: '55%', left: '25%', delay: 2.5, opacity: 0.15, color: '#e19b61' },
   ];
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -323,7 +323,7 @@ function Stars({ count = 5 }) {
           key={i}
           size={14}
           className={i < count ? 'text-amber-400 fill-amber-400' : 'text-gray-300 dark:text-gray-700'}
-          style={{ fill: i < count ? '#fbbf24' : 'none' }}
+          style={{ fill: i < count ? '#e29645' : 'none' }}
         />
       ))}
     </div>
@@ -429,8 +429,8 @@ export default function Home() {
             backgroundImage: `url('https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1200')`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            maskImage: 'linear-gradient(to left, rgba(0,0,0,0.8) 0%, transparent 100%)',
-            WebkitMaskImage: 'linear-gradient(to left, rgba(0,0,0,0.8) 0%, transparent 100%)',
+            maskImage: 'linear-gradient(to left, rgba(32,31,34,0.8) 0%, transparent 100%)',
+            WebkitMaskImage: 'linear-gradient(to left, rgba(32,31,34,0.8) 0%, transparent 100%)',
           }}
         />
 
@@ -446,7 +446,7 @@ export default function Home() {
               >
                 {/* Badge */}
                 <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full text-sm font-semibold text-white mb-7 glass-card">
-                  <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-[0_0_6px_2px_rgba(74,222,128,0.6)]" />
+                  <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse shadow-[0_0_6px_2px_rgba(226,150,69,0.6)]" />
                   {slide.badge}
                 </div>
 
@@ -750,7 +750,7 @@ export default function Home() {
               alt="New Collection"
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-r from-primary-950/85 via-primary-950/55 to-transparent" />
             <div className="absolute inset-0 p-8 flex flex-col justify-center">
               <span className="text-amber-400 text-xs font-bold uppercase tracking-widest mb-2">New Arrivals</span>
               <h3 className="text-white text-2xl md:text-3xl font-black mb-4 leading-tight">
