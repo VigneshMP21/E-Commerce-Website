@@ -12,8 +12,8 @@ export default function Contact() {
   };
 
   const contactInfo = [
-    { icon: HiOutlineMail, label: 'Email', value: 'support@ecwshop.com' },
-    { icon: HiOutlinePhone, label: 'Phone', value: '+91 1800-ECW-SHOP' },
+    { icon: HiOutlineMail, label: 'Email', value: 'support@vshop.com' },
+    { icon: HiOutlinePhone, label: 'Phone', value: '+91 1800-V-SHOP' },
     { icon: HiOutlineLocationMarker, label: 'Address', value: 'Mumbai, Maharashtra, India' },
     { icon: HiOutlineClock, label: 'Hours', value: 'Mon-Sat, 9AM-6PM IST' }
   ];

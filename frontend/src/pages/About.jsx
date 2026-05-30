@@ -19,9 +19,9 @@ export default function About() {
   return (
     <div className="container-custom py-6 md:py-8">
       <div className="max-w-3xl mx-auto text-center mb-16">
-        <h1 className="text-3xl md:text-4xl font-bold mb-4">About ECW Shop</h1>
+        <h1 className="text-3xl md:text-4xl font-bold mb-4">About V Shop</h1>
         <p className="text-gray-500 text-lg leading-relaxed">
-          We're on a mission to make premium shopping accessible to everyone. ECW Shop brings you
+          We're on a mission to make premium shopping accessible to everyone. V Shop brings you
           the finest products from around the world with an exceptional shopping experience.
         </p>
       </div>

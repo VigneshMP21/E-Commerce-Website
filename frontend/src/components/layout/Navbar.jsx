@@ -4,6 +4,7 @@ import { HiOutlineMenu, HiOutlineX, HiOutlineShoppingCart, HiOutlineHeart, HiOut
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { useTheme } from '../../context/ThemeContext';
+import logo from '../../assets/images/logo.png';
 
 const navLinks = [
   { name: 'Home', path: '/' },
@@ -41,11 +42,12 @@ export default function Navbar() {
           </button>
 
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">EC</span>
-            </div>
-            <span className="font-bold text-xl hidden sm:block">ECW</span>
+          <Link to="/" className="flex items-center">
+            <img
+              src={logo}
+              alt="V Shop logo"
+              className="h-10 w-24 sm:h-14 sm:w-40 md:h-16 md:w-44 object-cover object-center"
+            />
           </Link>
 
           {/* Desktop nav */}

@@ -1,3 +1,3 @@
 User-agent: *
 Allow: /
-Sitemap: https://ecwshop.com/sitemap.xml
+Sitemap: https://vshop.com/sitemap.xml

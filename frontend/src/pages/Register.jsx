@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { HiOutlineUser, HiOutlineMail, HiOutlineLockClosed } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
+import logo from '../assets/images/logo.png';
 
 export default function Register() {
   const [name, setName] = useState('');
@@ -34,11 +35,9 @@ export default function Register() {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
         <div className="card p-8">
           <div className="text-center mb-8">
-            <div className="w-12 h-12 bg-primary-600 rounded-xl flex items-center justify-center mx-auto mb-4">
-              <span className="text-white font-bold text-lg">EC</span>
-            </div>
+            <img src={logo} alt="V Shop logo" className="w-12 h-12 rounded-xl object-cover mx-auto mb-4" />
             <h1 className="text-2xl font-bold">Create account</h1>
-            <p className="text-gray-500 text-sm mt-1">Join ECW Shop today</p>
+            <p className="text-gray-500 text-sm mt-1">Join V Shop today</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">

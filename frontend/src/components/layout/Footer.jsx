@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { HiOutlineMail, HiOutlinePhone, HiOutlineLocationMarker } from 'react-icons/hi';
+import logo from '../../assets/images/logo.png';
 
 const footerLinks = {
   shop: [
@@ -30,17 +31,15 @@ export default function Footer() {
           {/* Brand */}
           <div className="space-y-4">
             <Link to="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">EC</span>
-              </div>
-              <span className="font-bold text-xl">ECW</span>
+              <img src={logo} alt="V Shop logo" className="w-8 h-8 rounded-lg object-cover" />
+              <span className="font-bold text-xl">V Shop</span>
             </Link>
             <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
               Premium e-commerce platform offering the finest products with exceptional shopping experience.
             </p>
             <div className="space-y-2 text-sm text-gray-500 dark:text-gray-400">
-              <p className="flex items-center gap-2"><HiOutlineMail /> support@ecwshop.com</p>
-              <p className="flex items-center gap-2"><HiOutlinePhone /> +91 1800-ECW-SHOP</p>
+              <p className="flex items-center gap-2"><HiOutlineMail /> support@vshop.com</p>
+              <p className="flex items-center gap-2"><HiOutlinePhone /> +91 1800-V-SHOP</p>
               <p className="flex items-center gap-2"><HiOutlineLocationMarker /> Mumbai, India</p>
             </div>
           </div>
@@ -84,7 +83,7 @@ export default function Footer() {
       <div className="border-t border-gray-200 dark:border-gray-800">
         <div className="container-custom py-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            &copy; {new Date().getFullYear()} ECW Shop. All rights reserved.
+            &copy; {new Date().getFullYear()} V Shop. All rights reserved.
           </p>
           <div className="flex items-center gap-4 text-sm text-gray-400">
             <span>Privacy</span>
