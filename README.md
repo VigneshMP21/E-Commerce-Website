@@ -157,6 +157,11 @@ ecw/
      ```bash
      mysql -u root -p ecw_database < database/schema.sql
      ```
+   - Optional: add 100+ demo products with image galleries:
+     ```bash
+     cd backend
+     npm run seed:products
+     ```
 
 4. **Frontend Setup**
    ```bash

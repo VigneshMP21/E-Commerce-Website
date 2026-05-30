@@ -1,22 +1,62 @@
-import { Link } from 'react-router-dom';
-import { HiOutlineHeart, HiOutlineStar } from 'react-icons/hi';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { HiHeart, HiOutlineHeart, HiOutlineStar } from 'react-icons/hi';
+import toast from 'react-hot-toast';
 import { formatPrice, calculateDiscount, getImageUrl } from '../../utils/helpers';
+import { useAuth } from '../../context/AuthContext';
+import { useWishlist } from '../../context/WishlistContext';
 
-export default function ProductCard({ product }) {
+export default function ProductCard({ product, onWishlistChange }) {
   const discount = calculateDiscount(product.price, product.compare_price);
+  const { user } = useAuth();
+  const { isInWishlist, toggleWishlist } = useWishlist();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const inWishlist = isInWishlist(product.id);
+
+  const handleWishlistClick = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!user) {
+      toast.error('Please sign in to use wishlist');
+      navigate('/login', { state: { from: location.pathname + location.search } });
+      return;
+    }
+
+    try {
+      const result = await toggleWishlist(product.id);
+      toast.success(result.message || (result.inWishlist ? 'Added to wishlist' : 'Removed from wishlist'));
+      onWishlistChange?.(product.id, result.inWishlist);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Wishlist update failed');
+    }
+  };
+
+  const HeartIcon = inWishlist ? HiHeart : HiOutlineHeart;
 
   return (
-    <Link to={`/product/${product.slug}`} className="group card overflow-hidden">
+    <div className="group card overflow-hidden">
       {/* Image */}
       <div className="relative aspect-square overflow-hidden bg-gray-50 dark:bg-gray-800">
-        <img
-          src={getImageUrl(product.images)}
-          alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          loading="lazy"
-        />
-        <button className="absolute top-3 right-3 p-2 bg-white/90 dark:bg-gray-900/90 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-white dark:hover:bg-gray-900">
-          <HiOutlineHeart size={18} className="text-gray-600 dark:text-gray-400" />
+        <Link to={`/product/${product.slug}`} className="block h-full">
+          <img
+            src={getImageUrl(product.images)}
+            alt={product.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            loading="lazy"
+          />
+        </Link>
+        <button
+          type="button"
+          onClick={handleWishlistClick}
+          aria-label={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+          className={`absolute top-3 right-3 z-10 p-2 rounded-full shadow-sm transition-all duration-200 sm:opacity-0 sm:group-hover:opacity-100 ${
+            inWishlist
+              ? 'bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-950 dark:text-rose-300'
+              : 'bg-white/90 text-gray-600 hover:bg-white dark:bg-gray-900/90 dark:text-gray-400 dark:hover:bg-gray-900'
+          }`}
+        >
+          <HeartIcon size={18} className={inWishlist ? 'fill-current' : ''} />
         </button>
         {discount > 0 && (
           <span className="absolute top-3 left-3 badge-danger text-xs font-bold">{discount}% OFF</span>
@@ -24,7 +64,7 @@ export default function ProductCard({ product }) {
       </div>
 
       {/* Content */}
-      <div className="p-4 space-y-2">
+      <Link to={`/product/${product.slug}`} className="block p-4 space-y-2">
         <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">{product.category_name || product.brand || 'General'}</p>
         <h3 className="font-medium text-sm leading-tight line-clamp-2 group-hover:text-primary-600 transition-colors">
           {product.name}
@@ -44,7 +84,7 @@ export default function ProductCard({ product }) {
             <span className="text-sm text-gray-400 line-through">{formatPrice(product.compare_price)}</span>
           )}
         </div>
-      </div>
-    </Link>
+      </Link>
+    </div>
   );
 }

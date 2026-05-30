@@ -14,7 +14,7 @@ const transporter = nodemailer.createTransport({
 const sendEmail = async ({ to, subject, html }) => {
   try {
     await transporter.sendMail({
-      from: `"ECW Shop" <${config.smtp.user}>`,
+      from: `"V Shop" <${config.smtp.user}>`,
       to,
       subject,
       html
@@ -29,10 +29,10 @@ const sendEmail = async ({ to, subject, html }) => {
 const sendWelcomeEmail = async (email, name) => {
   return sendEmail({
     to: email,
-    subject: 'Welcome to ECW Shop!',
+    subject: 'Welcome to V Shop!',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #4f46e5;">Welcome to ECW Shop!</h1>
+        <h1 style="color: #4f46e5;">Welcome to V Shop!</h1>
         <p>Hi ${name},</p>
         <p>Thank you for creating an account with us. We're excited to have you on board!</p>
         <p>Start exploring our collection of premium products.</p>
@@ -46,7 +46,7 @@ const sendResetPasswordEmail = async (email, resetToken) => {
   const resetUrl = `${config.frontendUrl}/reset-password/${resetToken}`;
   return sendEmail({
     to: email,
-    subject: 'Password Reset - ECW Shop',
+    subject: 'Password Reset - V Shop',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h1 style="color: #4f46e5;">Reset Your Password</h1>

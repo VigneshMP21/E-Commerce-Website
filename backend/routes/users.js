@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const userController = require('../controllers/userController');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/auth');
+
+router.get('/admin', authenticate, authorize('admin'), userController.getAdminUsers);
 
 router.get('/wishlist', authenticate, userController.getWishlist);
 router.get('/wishlist/ids', authenticate, userController.checkWishlist);
@@ -15,6 +17,6 @@ router.put('/addresses/:id', authenticate, userController.updateAddress);
 router.delete('/addresses/:id', authenticate, userController.deleteAddress);
 
 router.get('/banners', userController.getBanners);
-router.get('/dashboard', authenticate, userController.getDashboardStats);
+router.get('/dashboard', authenticate, authorize('admin'), userController.getDashboardStats);
 
 module.exports = router;

@@ -171,6 +171,33 @@ const checkWishlist = async (req, res, next) => {
   }
 };
 
+const getAdminUsers = async (req, res, next) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit, 10) || 12, 50);
+    const [users] = await pool.execute(
+      `SELECT u.id, u.name, u.email, u.role, u.avatar, u.is_verified, u.created_at,
+        COALESCE(os.order_count, 0) as order_count,
+        COALESCE(os.total_spent, 0) as total_spent,
+        os.last_order_at
+       FROM users u
+       LEFT JOIN (
+         SELECT user_id, COUNT(*) as order_count,
+          COALESCE(SUM(CASE WHEN payment_status = 'paid' THEN total_amount ELSE 0 END), 0) as total_spent,
+          MAX(created_at) as last_order_at
+         FROM orders
+         GROUP BY user_id
+       ) os ON os.user_id = u.id
+       ORDER BY u.created_at DESC
+       LIMIT ?`,
+      [limit]
+    );
+
+    res.json({ success: true, data: users });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getDashboardStats = async (req, res, next) => {
   try {
     const [totalUsers] = await pool.execute('SELECT COUNT(*) as count FROM users WHERE role = ?', ['user']);
@@ -213,5 +240,5 @@ const getDashboardStats = async (req, res, next) => {
 module.exports = {
   getWishlist, toggleWishlist, addReview,
   getAddresses, addAddress, updateAddress, deleteAddress,
-  getBanners, checkWishlist, getDashboardStats
+  getBanners, checkWishlist, getAdminUsers, getDashboardStats
 };

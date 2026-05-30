@@ -1,6 +1,17 @@
 const pool = require('../config/db');
 const { AppError } = require('../utils/errors');
 
+const parseJsonArray = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
 const getProducts = async (req, res, next) => {
   try {
     const {
@@ -76,6 +87,11 @@ const getProducts = async (req, res, next) => {
     params.push(parseInt(limit), offset);
 
     const [products] = await pool.execute(sql, params);
+    products.forEach(product => {
+      product.images = parseJsonArray(product.images);
+      product.specifications = parseJsonArray(product.specifications);
+    });
+
     const [countResult] = await pool.execute(countSql, countParams);
     const total = countResult[0].total;
 
@@ -110,18 +126,19 @@ const getProductBySlug = async (req, res, next) => {
     }
 
     const product = products[0];
-    product.images = product.images ? JSON.parse(product.images) : [];
-    product.specifications = product.specifications ? JSON.parse(product.specifications) : [];
+    product.images = parseJsonArray(product.images);
+    product.specifications = parseJsonArray(product.specifications);
 
     const [variants] = await pool.execute(
       'SELECT * FROM product_variants WHERE product_id = ? AND is_active = true',
       [product.id]
     );
 
-    const [images] = await pool.execute(
+    const [imageRows] = await pool.execute(
       'SELECT * FROM product_images WHERE product_id = ? ORDER BY sort_order',
       [product.id]
     );
+    const galleryImages = imageRows.length ? imageRows.map(image => image.url) : product.images;
 
     const [reviews] = await pool.execute(
       `SELECT r.*, u.name as user_name, u.avatar as user_avatar
@@ -151,7 +168,7 @@ const getProductBySlug = async (req, res, next) => {
 
     res.json({
       success: true,
-      data: { ...product, variants, images, reviews, related }
+      data: { ...product, images: galleryImages, imageRecords: imageRows, variants, reviews, related }
     });
   } catch (error) {
     next(error);

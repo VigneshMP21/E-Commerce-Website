@@ -5,11 +5,13 @@ import { HiOutlineMail, HiOutlineLockClosed, HiOutlineEye, HiOutlineEyeOff } fro
 import toast from 'react-hot-toast';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { getRememberedEmail } from '../utils/authStorage';
 import logo from '../assets/images/logo.png';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => getRememberedEmail());
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(() => Boolean(getRememberedEmail()));
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const { login, googleLogin } = useAuth();
@@ -29,7 +31,7 @@ export default function Login() {
     if (!email || !password) { toast.error('Please fill in all fields'); return; }
     setLoading(true);
     try {
-      await login(email, password);
+      await login(email.trim(), password, { rememberMe });
       toast.success('Welcome back!');
       navigate('/');
     } catch (err) {
@@ -70,7 +72,7 @@ export default function Login() {
           
           const { email, name, sub: googleId, picture: avatar } = userInfo.data;
           
-          await googleLogin({ email, name, googleId, avatar });
+          await googleLogin({ email, name, googleId, avatar }, { rememberMe });
           toast.success('Successfully logged in with Google');
           navigate('/');
         } catch (err) {
@@ -116,10 +118,15 @@ export default function Login() {
             </div>
             <div className="flex items-center justify-between text-sm">
               <label className="flex items-center gap-2">
-                <input type="checkbox" className="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={e => setRememberMe(e.target.checked)}
+                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
                 <span className="text-gray-500">Remember me</span>
               </label>
-              <Link to="/forgot-password" className="text-primary-600 hover:underline">Forgot password?</Link>
+              <Link to="/forgot-password" state={{ email }} className="text-primary-600 hover:underline">Forgot password?</Link>
             </div>
             <button type="submit" disabled={loading} className="btn-primary w-full py-3.5">
               {loading ? 'Signing in...' : 'Sign In'}

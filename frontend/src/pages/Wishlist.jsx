@@ -4,17 +4,28 @@ import { HiOutlineHeart } from 'react-icons/hi';
 import api from '../services/api';
 import ProductCard from '../components/product/ProductCard';
 import Breadcrumb from '../components/ui/Breadcrumb';
+import { useWishlist } from '../context/WishlistContext';
 
 export default function Wishlist() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { fetchWishlistIds } = useWishlist();
 
   useEffect(() => {
     api.get('/users/wishlist')
-      .then(res => setItems(res.data.data))
+      .then(res => {
+        setItems(res.data.data);
+        fetchWishlistIds();
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  const handleWishlistChange = (productId, inWishlist) => {
+    if (!inWishlist) {
+      setItems(current => current.filter(product => product.id !== productId));
+    }
+  };
 
   return (
     <div className="container-custom py-6 md:py-8">
@@ -27,7 +38,9 @@ export default function Wishlist() {
         </div>
       ) : items.length > 0 ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-          {items.map(product => <ProductCard key={product.id} product={product} />)}
+          {items.map(product => (
+            <ProductCard key={product.id} product={product} onWishlistChange={handleWishlistChange} />
+          ))}
         </div>
       ) : (
         <div className="text-center py-20">
