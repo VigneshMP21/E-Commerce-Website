@@ -254,14 +254,14 @@ function HeroBackgroundMarquee({ image }) {
 
 function CategoryShortcutBar() {
   return (
-    <section className="border-b border-gray-200 bg-white/95 shadow-sm dark:border-gray-800 dark:bg-gray-950/95">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="scrollbar-hide flex items-stretch justify-start gap-4 overflow-x-auto lg:justify-center">
+    <section className="relative z-20 border-b border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-950">
+      <div className="w-full">
+        <div className="scrollbar-hide flex w-full items-stretch justify-start gap-1 overflow-x-auto lg:justify-between">
           {topCategories.map(({ name, icon: Icon, to, active }) => (
             <Link
               key={name}
               to={to}
-              className={`group relative flex min-w-[4.25rem] flex-col items-center justify-center gap-1.5 py-3 text-center transition-all duration-200 ${
+              className={`group relative flex min-w-[4.5rem] flex-1 flex-col items-center justify-center gap-1.5 py-3 text-center transition-all duration-200 ${
                 active ? 'text-gray-950 dark:text-white' : 'text-gray-700 hover:text-gray-950 dark:text-gray-300 dark:hover:text-white'
               }`}
             >
@@ -431,7 +431,7 @@ export default function Home() {
       {/* ══════════════════════════════════
           HERO SECTION
       ══════════════════════════════════ */}
-      <section className="bg-gray-50 dark:bg-gray-950">
+      <section className="relative z-10 bg-gray-50 dark:bg-gray-950">
         <div className="w-full">
           <div className="relative w-full aspect-[16/9] overflow-hidden bg-primary-950 shadow-2xl shadow-primary-950/10">
             <HeroBackgroundMarquee image={heroBackgroundImages[heroBgIndex]} />
