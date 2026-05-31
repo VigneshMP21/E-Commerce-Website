@@ -10,11 +10,26 @@ import {
   HiOutlineSupport,
   HiOutlineStar,
   HiOutlineFire,
-  HiOutlineSparkles,
   HiOutlineLightningBolt,
   HiOutlineGift,
   HiOutlineCheckCircle,
 } from 'react-icons/hi';
+import {
+  FaBookOpen,
+  FaCarSide,
+  FaCouch,
+  FaDesktop,
+  FaFootballBall,
+  FaGamepad,
+  FaHome,
+  FaLaptop,
+  FaMobileAlt,
+  FaMotorcycle,
+  FaPalette,
+  FaShoppingBag,
+  FaTshirt,
+  FaUtensils,
+} from 'react-icons/fa';
 import api from '../services/api';
 import ProductCard from '../components/product/ProductCard';
 import ProductSkeleton from '../components/ui/Skeleton';
@@ -148,25 +163,43 @@ const testimonials = [
   },
 ];
 
-const stats = [
-  { value: '50K+', label: 'Happy Customers', icon: HiOutlineShoppingBag },
-  { value: '10K+', label: 'Products Listed', icon: HiOutlineSparkles },
-  { value: '99%', label: 'Satisfaction Rate', icon: HiOutlineStar },
-  { value: '120+', label: 'Top Brands', icon: HiOutlineGift },
-];
-
 const marqueeItems = [
-  '🔥 Summer Sale — Up to 70% OFF',
-  '✨ Free Shipping on orders over $100',
-  '⚡ Flash Deals Every Day at 12 PM',
-  '🎁 New Arrivals Added Daily',
-  '💎 Premium Quality Guaranteed',
-  '🚀 Next-Day Delivery Available',
-  '🛡️ Secure & Encrypted Checkout',
-  '🌟 1 Million+ Products in Stock',
+  '🌟 1M+ Products Across 100+ Categories',
+  '🔥 Mega Sale Event • Save Up to 70% Today',
+  '⚡ Flash Deals • Live Daily at 12 PM',
+  '🚚 Free Shipping • Orders Above $100',
+  '🎁 New Collections • Trending Products Added Daily',
+  '💎 Premium Quality • Trusted Global Brands',
+  '🛡️ Secure Payments • Encrypted Checkout Protection',
+  '🚀 Fast Delivery • Next-Day Shipping Available',
+  '⭐ Highly Rated • Trusted by Thousands of Customers',
+  '🔄 Easy Returns • Hassle-Free Refund Process',
+  '🏆 Top-Rated Brands • Best-Selling Products',
+  '🎯 Exclusive Member Benefits • Rewards & Discounts',
+  '📦 Real-Time Tracking • Every Order Monitored',
+  '💖 Personalized Picks • Curated Just for You',
+  '🌍 Nationwide Shipping • Reliable Logistics Network',
+  '🔔 Limited-Time Offers • Updated Every Hour'
 ];
 
 const heroBackgroundImages = [heroImage1, heroImage2, heroImage3, heroImage4, heroImage5];
+
+const topCategories = [
+  { name: 'For You', icon: FaShoppingBag, to: '/shop', active: true },
+  { name: 'Fashion', icon: FaTshirt, to: '/shop?category=fashion' },
+  { name: 'Mobiles', icon: FaMobileAlt, to: '/shop?search=smartphone' },
+  { name: 'Beauty', icon: FaPalette, to: '/shop?category=beauty' },
+  { name: 'Electronics', icon: FaLaptop, to: '/shop?category=electronics' },
+  { name: 'Home', icon: FaHome, to: '/shop?category=home-living' },
+  { name: 'Appliances', icon: FaDesktop, to: '/shop?search=appliance' },
+  { name: 'Toys', icon: FaGamepad, to: '/shop?search=toys' },
+  { name: 'Food & Health', icon: FaUtensils, to: '/shop?search=health' },
+  { name: 'Auto Acc.', icon: FaCarSide, to: '/shop?search=auto' },
+  { name: '2 Wheelers', icon: FaMotorcycle, to: '/shop?search=2%20wheeler' },
+  { name: 'Sports', icon: FaFootballBall, to: '/shop?category=sports' },
+  { name: 'Books', icon: FaBookOpen, to: '/shop?category=books' },
+  { name: 'Furniture', icon: FaCouch, to: '/shop?search=furniture' },
+];
 
 /* ═══════════════════════════════════════
    HOOKS
@@ -216,6 +249,40 @@ function HeroBackgroundMarquee({ image }) {
         />
       </AnimatePresence>
     </div>
+  );
+}
+
+function CategoryShortcutBar() {
+  return (
+    <section className="border-b border-gray-200 bg-white/95 shadow-sm dark:border-gray-800 dark:bg-gray-950/95">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="scrollbar-hide flex items-stretch justify-start gap-4 overflow-x-auto lg:justify-center">
+          {topCategories.map(({ name, icon: Icon, to, active }) => (
+            <Link
+              key={name}
+              to={to}
+              className={`group relative flex min-w-[4.25rem] flex-col items-center justify-center gap-1.5 py-3 text-center transition-all duration-200 ${
+                active ? 'text-gray-950 dark:text-white' : 'text-gray-700 hover:text-gray-950 dark:text-gray-300 dark:hover:text-white'
+              }`}
+            >
+              <span
+                className={`flex h-9 w-9 items-center justify-center rounded-lg border text-[1.05rem] shadow-sm transition-all duration-200 group-hover:-translate-y-0.5 ${
+                  active
+                    ? 'border-blue-200 bg-blue-50 text-gray-950 dark:border-blue-500/30 dark:bg-blue-500/15 dark:text-white'
+                    : 'border-transparent bg-transparent text-gray-900 group-hover:border-gray-200 group-hover:bg-gray-50 dark:text-gray-100 dark:group-hover:border-gray-700 dark:group-hover:bg-gray-900'
+                }`}
+              >
+                <Icon />
+              </span>
+              <span className="max-w-[5.25rem] truncate text-sm font-medium leading-none">{name}</span>
+              {active && (
+                <span className="absolute bottom-0 left-1/2 h-1 w-16 -translate-x-1/2 rounded-t-full bg-blue-600" />
+              )}
+            </Link>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -288,13 +355,12 @@ function Stars({ count = 5 }) {
    MAIN COMPONENT
 ═══════════════════════════════════════ */
 export default function Home() {
-  const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [popularProducts, setPopularProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [heroBgIndex, setHeroBgIndex] = useState(0);
   const [testimonialIdx, setTestimonialIdx] = useState(0);
   const [emailInput, setEmailInput] = useState('');
   const [subscribed, setSubscribed] = useState(false);
-  const [hoveredStat, setHoveredStat] = useState(null);
 
   // Deals countdown — end of today at midnight
   const dealTarget = useRef(
@@ -306,14 +372,13 @@ export default function Home() {
   ).current;
 
   // Section reveal refs
-  const { ref: statsRef, isInView: statsVisible } = useScrollReveal();
   const { ref: featRef, isInView: featVisible } = useScrollReveal();
   const { ref: catRef, isInView: catVisible } = useScrollReveal();
   const { ref: testRef, isInView: testVisible } = useScrollReveal();
 
   useEffect(() => {
-    api.get('/products/featured')
-      .then((res) => setFeaturedProducts(res.data.data))
+    api.get('/products?sort=popular&limit=32')
+      .then((res) => setPopularProducts(res.data.data))
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
@@ -361,13 +426,14 @@ export default function Home() {
 
       {/* ── Marquee Banner ── */}
       <MarqueeBanner />
+      <CategoryShortcutBar />
 
       {/* ══════════════════════════════════
           HERO SECTION
       ══════════════════════════════════ */}
-      <section className="bg-gray-50 dark:bg-gray-950 pt-4 md:pt-6">
-        <div className="container-custom">
-          <div className="relative mx-auto max-w-6xl aspect-[16/9] overflow-hidden bg-primary-950">
+      <section className="bg-gray-50 dark:bg-gray-950">
+        <div className="w-full">
+          <div className="relative w-full aspect-[16/9] overflow-hidden bg-primary-950 shadow-2xl shadow-primary-950/10">
             <HeroBackgroundMarquee image={heroBackgroundImages[heroBgIndex]} />
           </div>
         </div>
@@ -376,8 +442,8 @@ export default function Home() {
       {/* ══════════════════════════════════
           FEATURE CARDS
       ══════════════════════════════════ */}
-      <section className="container-custom py-12 md:py-16">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <section className="relative z-10 mx-auto -mt-12 max-w-6xl px-4 pb-6 pt-0 sm:-mt-14 sm:px-6 md:-mt-16 md:pb-8 lg:-mt-20 lg:px-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {features.map((f, i) => (
             <motion.div
               key={f.title}
@@ -386,7 +452,7 @@ export default function Home() {
               animate="visible"
               variants={fadeUp}
               whileHover={{ y: -4 }}
-              className="card p-5 md:p-6 flex flex-col items-center text-center gap-3 cursor-default group"
+              className="group flex min-h-[9.5rem] cursor-default flex-col items-center justify-center gap-3 rounded-2xl border border-white/70 bg-white/75 p-5 text-center shadow-xl shadow-primary-950/10 backdrop-blur-xl transition-all duration-300 hover:bg-white/90 dark:border-white/10 dark:bg-gray-950/65 dark:hover:bg-gray-900/80 md:p-6"
             >
               <div className={`w-14 h-14 ${f.bg} rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
                 <f.icon size={26} className={f.iconColor} />
@@ -399,48 +465,9 @@ export default function Home() {
       </section>
 
       {/* ══════════════════════════════════
-          STATS SECTION
-      ══════════════════════════════════ */}
-      <section
-        ref={statsRef}
-        className="mt-16 md:mt-24 relative overflow-hidden"
-      >
-        {/* Background */}
-        <div className="absolute inset-0 bg-gradient-to-r from-primary-600 via-violet-700 to-purple-800" />
-        <div className="absolute inset-0" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-        }} />
-        <div className="container-custom relative py-16 md:py-20">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
-            {stats.map((stat, i) => (
-              <motion.div
-                key={stat.label}
-                custom={i}
-                initial="hidden"
-                animate={statsVisible ? 'visible' : 'hidden'}
-                variants={scaleIn}
-                onHoverStart={() => setHoveredStat(i)}
-                onHoverEnd={() => setHoveredStat(null)}
-                className="stat-card relative overflow-hidden"
-              >
-                {hoveredStat === i && (
-                  <div className="absolute inset-0 bg-white/10 rounded-2xl" />
-                )}
-                <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center mb-2">
-                  <stat.icon size={28} className="text-white" />
-                </div>
-                <span className="text-3xl md:text-4xl font-black text-white">{stat.value}</span>
-                <span className="text-sm text-white/70 font-medium">{stat.label}</span>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════
           FLASH DEALS + COUNTDOWN
       ══════════════════════════════════ */}
-      <section className="container-custom py-16 md:py-24" ref={featRef}>
+      <section className="container-custom pb-16 pt-8 md:pb-24 md:pt-10" ref={featRef}>
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
           <div>
@@ -474,11 +501,11 @@ export default function Home() {
           initial="hidden"
           animate={featVisible ? 'visible' : 'hidden'}
           variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
-          className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6"
+          className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6"
         >
           {loading
-            ? [...Array(8)].map((_, i) => <ProductSkeleton key={i} />)
-            : featuredProducts.map((product, i) => (
+            ? [...Array(12)].map((_, i) => <ProductSkeleton key={i} />)
+            : popularProducts.map((product, i) => (
                 <motion.div
                   key={product.id}
                   variants={fadeUp}

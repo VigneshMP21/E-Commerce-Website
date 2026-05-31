@@ -21,7 +21,7 @@ const getProducts = async (req, res, next) => {
     } = req.query;
 
     let sql = 'SELECT p.*, c.name as category_name, c.slug as category_slug FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.is_active = true';
-    let countSql = 'SELECT COUNT(*) as total FROM products p WHERE p.is_active = true';
+    let countSql = 'SELECT COUNT(*) as total FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.is_active = true';
     const params = [];
     const countParams = [];
 
