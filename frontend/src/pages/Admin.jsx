@@ -92,6 +92,7 @@ export default function Admin() {
   const [draggedImageIndex, setDraggedImageIndex] = useState(null);
   const [products, setProducts] = useState([]);
   const [productsLoading, setProductsLoading] = useState(false);
+  const [manageProductCategory, setManageProductCategory] = useState('all');
   const [deletingProductId, setDeletingProductId] = useState(null);
   const [editingProductId, setEditingProductId] = useState(null);
   const [productEditForm, setProductEditForm] = useState(null);
@@ -120,6 +121,11 @@ export default function Admin() {
   );
   const newCategoryPending = productForm.categoryName.trim()
     && !categoryOptions.some(category => category.name.toLowerCase() === productForm.categoryName.trim().toLowerCase());
+  const filteredProducts = useMemo(() => {
+    if (manageProductCategory === 'all') return products;
+
+    return products.filter(product => String(product.category_id || '') === manageProductCategory);
+  }, [manageProductCategory, products]);
 
   const findCategoryMatch = (value) => {
     const normalized = value.trim().toLowerCase();
@@ -149,6 +155,15 @@ export default function Admin() {
       setProductForm(prev => ({ ...prev, categoryId: String(match.id) }));
     }
   }, [categoryOptions, productForm.categoryId, productForm.categoryName]);
+
+  useEffect(() => {
+    if (manageProductCategory === 'all') return;
+    const categoryExists = categoryOptions.some(category => String(category.id) === manageProductCategory);
+
+    if (!categoryExists) {
+      setManageProductCategory('all');
+    }
+  }, [categoryOptions, manageProductCategory]);
 
   const loadOrders = async () => {
     setOrdersLoading(true);
@@ -769,6 +784,23 @@ export default function Admin() {
                 Manage Product
               </h3>
               <p className="text-sm text-gray-500">Review catalog items and update or delete products.</p>
+              <div className="mt-3 w-full max-w-xs">
+                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Category
+                </label>
+                <select
+                  className="input-field !py-2.5 text-sm"
+                  value={manageProductCategory}
+                  onChange={e => setManageProductCategory(e.target.value)}
+                >
+                  <option value="all">All category</option>
+                  {categoryOptions.map(category => (
+                    <option key={category.id} value={String(category.id)}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
             <button type="button" onClick={loadProducts} className="btn-secondary gap-2 !py-2">
               <HiOutlineRefresh size={16} />
@@ -793,7 +825,7 @@ export default function Admin() {
                 {productsLoading && (
                   <tr><td colSpan="7" className="py-6 text-center text-gray-500">Loading products...</td></tr>
                 )}
-                {!productsLoading && products.map(product => {
+                {!productsLoading && filteredProducts.map(product => {
                   const productImage = Array.isArray(product.images) ? product.images[0] : '';
                   const isEditing = editingProductId === product.id && productEditForm;
 
@@ -962,8 +994,12 @@ export default function Admin() {
                       )
                   ];
                 })}
-                {!productsLoading && products.length === 0 && (
-                  <tr><td colSpan="7" className="py-6 text-center text-gray-500">No products found</td></tr>
+                {!productsLoading && filteredProducts.length === 0 && (
+                  <tr>
+                    <td colSpan="7" className="py-6 text-center text-gray-500">
+                      {products.length === 0 ? 'No products found' : 'No products found in this category'}
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>

@@ -30,7 +30,7 @@ export default function Shop() {
 
   useEffect(() => {
     setLoading(true);
-    const params = new URLSearchParams({ page, limit: '12', sort });
+    const params = new URLSearchParams({ page, limit: '50', sort });
     if (category) params.set('category', category);
     if (search) params.set('search', search);
     if (minPrice) params.set('minPrice', minPrice);
@@ -56,7 +56,7 @@ export default function Shop() {
   const clearFilters = () => setSearchParams({});
 
   return (
-    <div className="container-custom py-6 md:py-8">
+    <div className="mx-auto w-full max-w-[1680px] px-4 py-6 sm:px-6 md:py-8 lg:px-8 2xl:px-10">
       <Breadcrumb items={[
         ...(category ? [{ name: 'Categories', path: '/categories' }] : []),
         { name: search ? `Search: "${search}"` : category || 'All Products' }
@@ -80,9 +80,9 @@ export default function Shop() {
         </div>
       </div>
 
-      <div className="flex gap-8">
+      <div className="flex gap-6 xl:gap-8">
         {/* Filters sidebar */}
-        <aside className={`${showFilters ? 'fixed inset-0 z-50 flex' : 'hidden'} lg:block lg:relative lg:w-64 flex-shrink-0`}>
+        <aside className={`${showFilters ? 'fixed inset-0 z-50 flex' : 'hidden'} lg:block lg:relative lg:w-64 xl:w-72 flex-shrink-0`}>
           <div className="bg-white dark:bg-gray-950 lg:bg-transparent w-full max-w-sm lg:max-w-none p-6 lg:p-0 lg:sticky lg:top-24 lg:h-fit overflow-y-auto">
             <div className="flex items-center justify-between mb-6 lg:hidden">
               <h3 className="font-semibold">Filters</h3>
@@ -122,12 +122,12 @@ export default function Shop() {
         {/* Product grid */}
         <div className="flex-1">
           {loading ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-              {[...Array(8)].map((_, i) => <ProductSkeleton key={i} />)}
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6 xl:grid-cols-4 2xl:grid-cols-5">
+              {[...Array(10)].map((_, i) => <ProductSkeleton key={i} />)}
             </div>
           ) : products.length > 0 ? (
             <>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6 xl:grid-cols-4 2xl:grid-cols-5">
                 {products.map(product => <ProductCard key={product.id} product={product} />)}
               </div>
 
