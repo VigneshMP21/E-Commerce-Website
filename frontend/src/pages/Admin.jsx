@@ -515,68 +515,72 @@ export default function Admin() {
 
   return (
     <div className="container-custom py-6 md:py-8">
-      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Admin Dashboard</h1>
-          <p className="mt-1 text-sm text-gray-500">Manage store operations, inventory and sales performance.</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => loadDashboard().then(() => toast.success('Dashboard refreshed'))}
-          className="btn-secondary gap-2 !py-2.5"
-        >
-          <HiOutlineRefresh size={18} />
-          Refresh
-        </button>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        {statCards.map(stat => (
-          <div key={stat.label} className={`card p-4 md:p-6 ${stat.bg}`}>
-            <div className="flex items-center justify-between mb-3">
-              <stat.icon size={24} className={stat.color} />
-            </div>
-            <p className="text-2xl md:text-3xl font-bold">{stat.value}</p>
-            <p className="text-sm text-gray-500 mt-1">{stat.label}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="card p-5 md:p-6 mb-8">
-        <div className="mb-5 flex items-center justify-between gap-4">
-          <div>
-            <h3 className="font-semibold text-lg">Quick Actions</h3>
-            <p className="mt-1 text-sm text-gray-500">Start the most common admin tasks from one place.</p>
-          </div>
-          <span className="hidden sm:inline-flex badge-primary">Admin tools</span>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          {quickActions.map(action => (
-            <button
-              key={action.key}
-              type="button"
-              onClick={() => handleQuickAction(action.key)}
-              className={`group flex min-h-[116px] items-center justify-between gap-4 rounded-2xl border p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
-                activePanel === action.key
-                  ? 'border-primary-300 bg-primary-50/70 ring-2 ring-primary-100 dark:border-primary-700 dark:bg-primary-950/30 dark:ring-primary-900/40'
-                  : 'border-gray-100 bg-gray-50 hover:border-primary-200 hover:bg-white dark:border-gray-800 dark:bg-gray-800/80 dark:hover:border-primary-800 dark:hover:bg-gray-800'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${action.accent}`}>
-                  <action.icon size={22} />
-                </span>
-                <span>
-                  <span className="block text-sm font-semibold text-gray-900 dark:text-white">{action.label}</span>
-                  <span className="mt-1 block text-xs leading-5 text-gray-500">{action.description}</span>
-                  <span className="mt-2 block text-[11px] font-medium uppercase tracking-wide text-gray-400">{action.metric}</span>
-                </span>
+      <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)]">
+        <aside className="lg:sticky lg:top-24 lg:self-start">
+          <div className="card p-4 md:p-5">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="font-semibold text-lg">Quick Actions</h3>
+                <p className="mt-1 text-sm text-gray-500">Admin tasks</p>
               </div>
-              <HiOutlineArrowRight size={18} className="shrink-0 text-gray-400 transition-transform group-hover:translate-x-1 group-hover:text-primary-600" />
+              <span className="badge-primary shrink-0">Tools</span>
+            </div>
+            <div className="space-y-3">
+              {quickActions.map(action => (
+                <button
+                  key={action.key}
+                  type="button"
+                  onClick={() => handleQuickAction(action.key)}
+                  className={`group flex min-h-[96px] w-full items-center justify-between gap-3 rounded-xl border p-3 text-left transition-all duration-200 hover:shadow-sm ${
+                    activePanel === action.key
+                      ? 'border-primary-300 bg-primary-50/70 ring-2 ring-primary-100 dark:border-primary-700 dark:bg-primary-950/30 dark:ring-primary-900/40'
+                      : 'border-gray-100 bg-gray-50 hover:border-primary-200 hover:bg-white dark:border-gray-800 dark:bg-gray-800/80 dark:hover:border-primary-800 dark:hover:bg-gray-800'
+                  }`}
+                >
+                  <span className="flex min-w-0 items-center gap-3">
+                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${action.accent}`}>
+                      <action.icon size={20} />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-gray-900 dark:text-white">{action.label}</span>
+                      <span className="mt-1 block text-xs leading-5 text-gray-500">{action.description}</span>
+                      <span className="mt-2 block text-[11px] font-medium uppercase text-gray-400">{action.metric}</span>
+                    </span>
+                  </span>
+                  <HiOutlineArrowRight size={17} className="shrink-0 text-gray-400 transition-transform group-hover:translate-x-1 group-hover:text-primary-600" />
+                </button>
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        <div className="min-w-0">
+          <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold">Admin Dashboard</h1>
+              <p className="mt-1 text-sm text-gray-500">Manage store operations, inventory and sales performance.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => loadDashboard().then(() => toast.success('Dashboard refreshed'))}
+              className="btn-secondary gap-2 !py-2.5"
+            >
+              <HiOutlineRefresh size={18} />
+              Refresh
             </button>
-          ))}
-        </div>
-      </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            {statCards.map(stat => (
+              <div key={stat.label} className={`card p-4 md:p-6 ${stat.bg}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <stat.icon size={24} className={stat.color} />
+                </div>
+                <p className="text-2xl md:text-3xl font-bold">{stat.value}</p>
+                <p className="text-sm text-gray-500 mt-1">{stat.label}</p>
+              </div>
+            ))}
+          </div>
 
       {activePanel === 'product' && (
         <div ref={productRef} className="card p-6 mb-8 scroll-mt-24">
@@ -955,7 +959,7 @@ export default function Admin() {
                             </div>
                           </td>
                         </tr>
-                      )}
+                      )
                   ];
                 })}
                 {!productsLoading && products.length === 0 && (
@@ -1204,6 +1208,8 @@ export default function Admin() {
               <p className="text-sm text-gray-500 py-4">No order status data yet</p>
             )}
           </div>
+        </div>
+      </div>
         </div>
       </div>
     </div>

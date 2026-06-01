@@ -1,25 +1,32 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { HiHeart, HiOutlineHeart, HiOutlineStar } from 'react-icons/hi';
+import { HiHeart, HiOutlineHeart, HiOutlineShoppingCart, HiOutlineStar } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import { formatPrice, calculateDiscount, getImageUrl } from '../../utils/helpers';
 import { useAuth } from '../../context/AuthContext';
 import { useWishlist } from '../../context/WishlistContext';
+import { useCart } from '../../context/CartContext';
 
 export default function ProductCard({ product, onWishlistChange }) {
   const discount = calculateDiscount(product.price, product.compare_price);
   const { user } = useAuth();
   const { isInWishlist, toggleWishlist } = useWishlist();
+  const { addToCart } = useCart();
   const navigate = useNavigate();
   const location = useLocation();
   const inWishlist = isInWishlist(product.id);
+  const loginRedirectState = { from: location.pathname + location.search };
+
+  const redirectToLogin = (message) => {
+    toast.error(message);
+    navigate('/login', { state: loginRedirectState });
+  };
 
   const handleWishlistClick = async (e) => {
     e.preventDefault();
     e.stopPropagation();
 
     if (!user) {
-      toast.error('Please sign in to use wishlist');
-      navigate('/login', { state: { from: location.pathname + location.search } });
+      redirectToLogin('Please login to add this product to your wishlist.');
       return;
     }
 
@@ -29,6 +36,23 @@ export default function ProductCard({ product, onWishlistChange }) {
       onWishlistChange?.(product.id, result.inWishlist);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Wishlist update failed');
+    }
+  };
+
+  const handleAddToCart = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!user) {
+      redirectToLogin('Please login to add this product to your cart.');
+      return;
+    }
+
+    try {
+      await addToCart(product.id, 1);
+      toast.success('Added to cart');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to add to cart');
     }
   };
 
@@ -85,6 +109,13 @@ export default function ProductCard({ product, onWishlistChange }) {
           )}
         </div>
       </Link>
+
+      <div className="px-4 pb-4">
+        <button type="button" onClick={handleAddToCart} className="btn-primary w-full gap-2 !py-2.5 text-sm">
+          <HiOutlineShoppingCart size={17} />
+          Add to Cart
+        </button>
+      </div>
     </div>
   );
 }
