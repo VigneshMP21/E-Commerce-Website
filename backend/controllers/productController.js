@@ -18,6 +18,25 @@ const parseJsonArray = (value) => {
   }
 };
 
+const getSearchPatterns = (value = '') => {
+  const normalized = String(value).trim();
+  if (!normalized) return [];
+
+  const variants = new Set([normalized]);
+  const slug = makeSlug(normalized);
+  if (slug) variants.add(slug);
+
+  if (normalized.length > 3 && normalized.toLowerCase().endsWith('s')) {
+    const singular = normalized.slice(0, -1);
+    variants.add(singular);
+
+    const singularSlug = makeSlug(singular);
+    if (singularSlug) variants.add(singularSlug);
+  }
+
+  return [...variants].map(term => `%${term}%`);
+};
+
 const getUniqueCategorySlug = async (name, excludeId = null) => {
   const slugBase = makeSlug(name);
   if (!slugBase) {
@@ -56,8 +75,9 @@ const getProducts = async (req, res, next) => {
       featured, status = 'active'
     } = req.query;
 
-    let sql = 'SELECT p.*, c.name as category_name, c.slug as category_slug FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.is_active = true';
-    let countSql = 'SELECT COUNT(*) as total FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE p.is_active = true';
+    const productJoin = 'FROM products p LEFT JOIN categories c ON p.category_id = c.id LEFT JOIN categories pc ON c.parent_id = pc.id';
+    let sql = `SELECT p.*, c.name as category_name, c.slug as category_slug ${productJoin} WHERE p.is_active = true`;
+    let countSql = `SELECT COUNT(*) as total ${productJoin} WHERE p.is_active = true`;
     const params = [];
     const countParams = [];
 
@@ -75,11 +95,28 @@ const getProducts = async (req, res, next) => {
       countParams.push(category, category);
     }
 
-    if (search) {
-      sql += ' AND (p.name LIKE ? OR p.description LIKE ?)';
-      countSql += ' AND (p.name LIKE ? OR p.description LIKE ?)';
-      params.push(`%${search}%`, `%${search}%`);
-      countParams.push(`%${search}%`, `%${search}%`);
+    const searchPatterns = getSearchPatterns(search);
+    if (searchPatterns.length) {
+      const searchFields = [
+        'p.name',
+        'p.description',
+        'p.short_description',
+        'p.brand',
+        'p.sku',
+        'c.name',
+        'c.slug',
+        'pc.name',
+        'pc.slug'
+      ];
+      const searchClause = searchPatterns
+        .flatMap(() => searchFields.map(field => `${field} LIKE ?`))
+        .join(' OR ');
+      const searchValues = searchPatterns.flatMap(pattern => searchFields.map(() => pattern));
+
+      sql += ` AND (${searchClause})`;
+      countSql += ` AND (${searchClause})`;
+      params.push(...searchValues);
+      countParams.push(...searchValues);
     }
 
     if (minPrice) {

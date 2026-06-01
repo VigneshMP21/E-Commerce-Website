@@ -137,7 +137,7 @@ export default function Navbar() {
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search products..."
+                placeholder="Search products or categories..."
                 className="input-field flex-1"
                 autoFocus
               />
