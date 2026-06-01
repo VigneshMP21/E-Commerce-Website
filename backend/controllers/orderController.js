@@ -5,12 +5,29 @@ const config = require('../config');
 
 const stripe = config.stripe.secretKey ? require('stripe')(config.stripe.secretKey) : null;
 
+const parseJsonArray = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
 const createOrder = async (req, res, next) => {
   try {
     const {
       shippingAddressId, billingAddressId, paymentMethod,
       notes, couponCode, sessionId
     } = req.body;
+    const shippingId = shippingAddressId || null;
+    const billingId = billingAddressId || shippingId;
+    const orderPaymentMethod = paymentMethod || null;
+    const orderNotes = notes || null;
+    const orderCouponCode = couponCode || null;
 
     let cartId;
     if (req.user) {
@@ -30,16 +47,18 @@ const createOrder = async (req, res, next) => {
     );
 
     if (!items.length) throw new AppError('Cart is empty', 400);
+    if (!shippingId) throw new AppError('Shipping address is required', 400);
+    if (!orderPaymentMethod) throw new AppError('Payment method is required', 400);
 
     const subtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const shippingCost = subtotal > 100 ? 0 : 10;
     const taxAmount = subtotal * 0.08;
     let discountAmount = 0;
 
-    if (couponCode) {
+    if (orderCouponCode) {
       const [coupons] = await pool.execute(
         'SELECT * FROM coupons WHERE code = ? AND is_active = true AND (expires_at IS NULL OR expires_at > NOW()) AND (usage_limit IS NULL OR used_count < usage_limit)',
-        [couponCode]
+        [orderCouponCode]
       );
       if (coupons.length) {
         const coupon = coupons[0];
@@ -60,18 +79,20 @@ const createOrder = async (req, res, next) => {
         subtotal, shipping_cost, tax_amount, discount_amount, total_amount,
         shipping_address_id, billing_address_id, coupon_code, notes)
        VALUES (?, ?, 'pending', 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [orderNumber, req.user?.id || null, paymentMethod,
+      [orderNumber, req.user?.id || null, orderPaymentMethod,
         subtotal, shippingCost, taxAmount, discountAmount, totalAmount,
-        shippingAddressId, billingAddressId || shippingAddressId, couponCode, notes]
+        shippingId, billingId, orderCouponCode, orderNotes]
     );
 
     const orderId = orderResult.insertId;
 
     for (const item of items) {
+      const productImage = parseJsonArray(item.images)[0] || null;
+
       await pool.execute(
         `INSERT INTO order_items (order_id, product_id, product_name, product_image, quantity, unit_price, total_price)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [orderId, item.product_id, item.name, item.images ? JSON.parse(item.images)[0] : null,
+        [orderId, item.product_id, item.name, productImage,
          item.quantity, item.price, item.price * item.quantity]
       );
       await pool.execute('UPDATE products SET stock_quantity = stock_quantity - ?, sales_count = sales_count + ? WHERE id = ?',

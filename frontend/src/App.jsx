@@ -13,6 +13,7 @@ import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import Admin from './pages/Admin';
 import Wishlist from './pages/Wishlist';
+import Addresses from './pages/Addresses';
 import Orders from './pages/Orders';
 import OrderDetail from './pages/OrderDetail';
 import Deals from './pages/Deals';
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/wishlist" element={<Wishlist />} />
+          <Route path="/addresses" element={<Addresses />} />
           <Route path="/orders" element={<Orders />} />
           <Route path="/orders/:orderNumber" element={<OrderDetail />} />
           <Route path="/deals" element={<Deals />} />

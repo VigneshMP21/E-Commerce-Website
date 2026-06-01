@@ -111,6 +111,7 @@ export default function Navbar() {
                       </div>
                       <Link to="/dashboard" className="block px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800" onClick={() => setUserMenuOpen(false)}>Dashboard</Link>
                       <Link to="/orders" className="block px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800" onClick={() => setUserMenuOpen(false)}>Orders</Link>
+                      <Link to="/addresses" className="block px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800" onClick={() => setUserMenuOpen(false)}>Address</Link>
                       <Link to="/wishlist" className="block px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800" onClick={() => setUserMenuOpen(false)}>Wishlist</Link>
                       {user.role === 'admin' && (
                         <Link to="/admin" className="block px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 text-primary-600" onClick={() => setUserMenuOpen(false)}>Admin Panel</Link>

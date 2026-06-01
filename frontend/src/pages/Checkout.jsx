@@ -8,15 +8,23 @@ import { useAuth } from '../context/AuthContext';
 import { formatPrice } from '../utils/helpers';
 import Breadcrumb from '../components/ui/Breadcrumb';
 
+const initialAddressForm = {
+  fullName: '',
+  phone: '',
+  street: '',
+  city: '',
+  state: '',
+  zipCode: '',
+  country: 'India'
+};
+
 export default function Checkout() {
   const [step, setStep] = useState(1);
   const [addresses, setAddresses] = useState([]);
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('stripe');
   const [processing, setProcessing] = useState(false);
-  const [newAddress, setNewAddress] = useState({
-    fullName: '', phone: '', street: '', city: '', state: '', zipCode: '', country: 'India'
-  });
+  const [newAddress, setNewAddress] = useState(initialAddressForm);
   const { items, subtotal, clearCart } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -35,8 +43,22 @@ export default function Checkout() {
   const saveAddress = async () => {
     try {
       const res = await api.post('/users/addresses', newAddress);
-      setAddresses([...addresses, { id: res.data.data.id, ...newAddress }]);
+      setAddresses(current => [
+        ...current,
+        {
+          id: res.data.data.id,
+          full_name: newAddress.fullName,
+          phone: newAddress.phone,
+          street: newAddress.street,
+          city: newAddress.city,
+          state: newAddress.state,
+          zip_code: newAddress.zipCode,
+          country: newAddress.country,
+          is_default: false
+        }
+      ]);
       setSelectedAddress(res.data.data.id);
+      setNewAddress(initialAddressForm);
       toast.success('Address saved');
     } catch {
       toast.error('Failed to save address');
