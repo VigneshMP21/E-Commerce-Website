@@ -47,14 +47,7 @@ const toggleWishlist = async (req, res, next) => {
 const addReview = async (req, res, next) => {
   try {
     const { productId, rating, title, comment } = req.body;
-
-    const [existing] = await pool.execute(
-      'SELECT id FROM reviews WHERE product_id = ? AND user_id = ?',
-      [productId, req.user.id]
-    );
-    if (existing.length) {
-      throw new AppError('You have already reviewed this product', 400);
-    }
+    const reviewRating = Math.min(Math.max(parseInt(rating, 10) || 0, 1), 5);
 
     const [orders] = await pool.execute(
       `SELECT oi.id FROM order_items oi
@@ -63,13 +56,29 @@ const addReview = async (req, res, next) => {
       [productId, req.user.id]
     );
 
-    await pool.execute(
-      'INSERT INTO reviews (product_id, user_id, rating, title, comment, is_verified_purchase, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [productId, req.user.id, rating, title, comment, orders.length > 0, false]
+    if (!orders.length) {
+      throw new AppError('You can review this product after delivery', 400);
+    }
+
+    const [existing] = await pool.execute(
+      'SELECT id FROM reviews WHERE product_id = ? AND user_id = ?',
+      [productId, req.user.id]
     );
 
+    if (existing.length) {
+      await pool.execute(
+        'UPDATE reviews SET rating = ?, title = ?, comment = ?, is_approved = true WHERE id = ?',
+        [reviewRating, title || null, comment || null, existing[0].id]
+      );
+    } else {
+      await pool.execute(
+        'INSERT INTO reviews (product_id, user_id, rating, title, comment, is_verified_purchase, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [productId, req.user.id, reviewRating, title || null, comment || null, true, true]
+      );
+    }
+
     const [stats] = await pool.execute(
-      'SELECT ROUND(AVG(rating), 2) as avg_rating, COUNT(*) as count FROM reviews WHERE product_id = ? AND is_approved = true',
+      'SELECT ROUND(AVG(rating), 2) as avg_rating, COUNT(*) as count FROM reviews WHERE product_id = ? AND (is_approved = true OR is_verified_purchase = true)',
       [productId]
     );
 
@@ -80,7 +89,10 @@ const addReview = async (req, res, next) => {
       );
     }
 
-    res.status(201).json({ success: true, message: 'Review submitted successfully' });
+    res.status(existing.length ? 200 : 201).json({
+      success: true,
+      message: existing.length ? 'Review updated successfully' : 'Review submitted successfully'
+    });
   } catch (error) {
     next(error);
   }

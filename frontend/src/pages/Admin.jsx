@@ -29,6 +29,10 @@ import { formatPrice, formatDate, getStatusColor } from '../utils/helpers';
 
 const orderStatuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'];
 
+const getPaymentStatusLabel = (status) => (
+  status === 'paid' ? 'success' : status
+);
+
 const initialProductForm = {
   name: '',
   slug: '',
@@ -703,9 +707,12 @@ export default function Admin() {
   const handleOrderStatusChange = async (orderId, status) => {
     setUpdatingOrderId(orderId);
     try {
-      await api.put(`/orders/${orderId}/status`, { status });
+      const res = await api.put(`/orders/${orderId}/status`, { status });
+      const paymentStatus = res.data.data?.paymentStatus;
       setOrders(current => current.map(order => (
-        order.id === orderId ? { ...order, status } : order
+        order.id === orderId
+          ? { ...order, status, payment_status: paymentStatus || (status === 'delivered' ? 'paid' : order.payment_status) }
+          : order
       )));
       toast.success('Order status updated');
       await loadDashboard();
@@ -1611,7 +1618,7 @@ export default function Admin() {
                     <td className="py-3 pr-4 text-gray-500">{formatDate(order.created_at)}</td>
                     <td className="py-3 pr-4 font-semibold">{formatPrice(order.total_amount)}</td>
                     <td className="py-3 pr-4">
-                      <span className={`badge text-xs ${order.payment_status === 'paid' ? 'badge-success' : 'badge-warning'}`}>{order.payment_status}</span>
+                      <span className={`badge text-xs ${order.payment_status === 'paid' ? 'badge-success' : 'badge-warning'}`}>{getPaymentStatusLabel(order.payment_status)}</span>
                     </td>
                     <td className="py-3 pr-4">
                       <select

@@ -1,17 +1,20 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { HiOutlineShoppingCart, HiOutlineHeart, HiOutlineStar, HiOutlineMinus, HiOutlinePlus, HiOutlineCheck, HiOutlineTruck, HiOutlineShieldCheck, HiOutlineRefresh } from 'react-icons/hi';
+import { HiHeart, HiOutlineShoppingCart, HiOutlineHeart, HiOutlineStar, HiOutlineMinus, HiOutlinePlus, HiOutlineCheck, HiOutlineTruck, HiOutlineShieldCheck, HiOutlineRefresh } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { useWishlist } from '../context/WishlistContext';
 import { formatPrice, calculateDiscount, formatDate, truncateText } from '../utils/helpers';
 import Breadcrumb from '../components/ui/Breadcrumb';
 import ProductCard from '../components/product/ProductCard';
 
 export default function ProductDetail() {
   const { slug } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(0);
@@ -20,6 +23,7 @@ export default function ProductDetail() {
   const [zoomPos, setZoomPos] = useState({ x: 0, y: 0 });
   const { addToCart } = useCart();
   const { user } = useAuth();
+  const { isInWishlist, toggleWishlist } = useWishlist();
 
   useEffect(() => {
     setLoading(true);
@@ -35,6 +39,21 @@ export default function ProductDetail() {
       toast.success('Added to cart!');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to add to cart');
+    }
+  };
+
+  const handleWishlistClick = async () => {
+    if (!user) {
+      toast.error('Please login to add this product to your wishlist.');
+      navigate('/login', { state: { from: location.pathname + location.search } });
+      return;
+    }
+
+    try {
+      const result = await toggleWishlist(product.id);
+      toast.success(result.message || (result.inWishlist ? 'Added to wishlist' : 'Removed from wishlist'));
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Wishlist update failed');
     }
   };
 
@@ -65,6 +84,8 @@ export default function ProductDetail() {
 
   const discount = calculateDiscount(product.price, product.compare_price);
   const images = product.images?.length ? product.images : ['https://via.placeholder.com/600'];
+  const inWishlist = isInWishlist(product.id);
+  const HeartIcon = inWishlist ? HiHeart : HiOutlineHeart;
 
   return (
     <div className="container-custom py-6 md:py-8">
@@ -163,8 +184,17 @@ export default function ProductDetail() {
               <HiOutlineShoppingCart size={20} className="mr-2" />
               Add to Cart
             </button>
-            <button className="btn-secondary !px-4">
-              <HiOutlineHeart size={20} />
+            <button
+              type="button"
+              onClick={handleWishlistClick}
+              aria-label={inWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+              className={`btn-secondary !px-4 transition-colors ${
+                inWishlist
+                  ? '!bg-rose-50 !text-rose-600 hover:!bg-rose-100 dark:!bg-rose-950 dark:!text-rose-300'
+                  : ''
+              }`}
+            >
+              <HeartIcon size={20} className={inWishlist ? 'fill-current' : ''} />
             </button>
           </div>
 
@@ -209,7 +239,7 @@ export default function ProductDetail() {
                   </div>
                 </div>
                 {review.title && <h4 className="font-medium mb-1">{review.title}</h4>}
-                <p className="text-sm text-gray-600 dark:text-gray-400">{review.comment}</p>
+                {review.comment && <p className="text-sm text-gray-600 dark:text-gray-400">{review.comment}</p>}
               </div>
             ))}
           </div>

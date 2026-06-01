@@ -18,6 +18,24 @@ const parseJsonArray = (value) => {
   }
 };
 
+const visibleReviewWhere = '(is_approved = true OR is_verified_purchase = true)';
+const reviewStatsJoin = `LEFT JOIN (
+  SELECT product_id, ROUND(AVG(rating), 2) as average_rating, COUNT(*) as review_total
+  FROM reviews
+  WHERE ${visibleReviewWhere}
+  GROUP BY product_id
+) rs ON rs.product_id = p.id`;
+const reviewRatingExpr = 'COALESCE(rs.average_rating, p.rating, 0)';
+const reviewCountExpr = 'COALESCE(rs.review_total, p.review_count, 0)';
+
+const applyReviewStats = (product) => {
+  product.rating = Number(product.computed_rating ?? product.rating ?? 0);
+  product.review_count = Number(product.computed_review_count ?? product.review_count ?? 0);
+  delete product.computed_rating;
+  delete product.computed_review_count;
+  return product;
+};
+
 const getSearchPatterns = (value = '') => {
   const normalized = String(value).trim();
   if (!normalized) return [];
@@ -75,8 +93,8 @@ const getProducts = async (req, res, next) => {
       featured, status = 'active'
     } = req.query;
 
-    const productJoin = 'FROM products p LEFT JOIN categories c ON p.category_id = c.id LEFT JOIN categories pc ON c.parent_id = pc.id';
-    let sql = `SELECT p.*, c.name as category_name, c.slug as category_slug ${productJoin} WHERE p.is_active = true`;
+    const productJoin = `FROM products p LEFT JOIN categories c ON p.category_id = c.id LEFT JOIN categories pc ON c.parent_id = pc.id ${reviewStatsJoin}`;
+    let sql = `SELECT p.*, ${reviewRatingExpr} as computed_rating, ${reviewCountExpr} as computed_review_count, c.name as category_name, c.slug as category_slug ${productJoin} WHERE p.is_active = true`;
     let countSql = `SELECT COUNT(*) as total ${productJoin} WHERE p.is_active = true`;
     const params = [];
     const countParams = [];
@@ -134,8 +152,8 @@ const getProducts = async (req, res, next) => {
     }
 
     if (rating) {
-      sql += ' AND p.rating >= ?';
-      countSql += ' AND p.rating >= ?';
+      sql += ` AND ${reviewRatingExpr} >= ?`;
+      countSql += ` AND ${reviewRatingExpr} >= ?`;
       params.push(parseFloat(rating));
       countParams.push(parseFloat(rating));
     }
@@ -150,7 +168,7 @@ const getProducts = async (req, res, next) => {
       'price_desc': 'p.price DESC',
       'newest': 'p.created_at DESC',
       'popular': 'p.sales_count DESC',
-      'rating': 'p.rating DESC',
+      'rating': `${reviewRatingExpr} DESC`,
       'name': 'p.name ASC'
     };
     sql += ' ORDER BY ' + (sortOptions[sort] || 'p.created_at DESC');
@@ -161,6 +179,7 @@ const getProducts = async (req, res, next) => {
 
     const [products] = await pool.execute(sql, params);
     products.forEach(product => {
+      applyReviewStats(product);
       product.images = parseJsonArray(product.images);
       product.specifications = parseJsonArray(product.specifications);
     });
@@ -188,8 +207,8 @@ const getProductBySlug = async (req, res, next) => {
     const { slug } = req.params;
 
     const [products] = await pool.execute(
-      `SELECT p.*, c.name as category_name, c.slug as category_slug
-       FROM products p LEFT JOIN categories c ON p.category_id = c.id
+      `SELECT p.*, ${reviewRatingExpr} as computed_rating, ${reviewCountExpr} as computed_review_count, c.name as category_name, c.slug as category_slug
+       FROM products p LEFT JOIN categories c ON p.category_id = c.id ${reviewStatsJoin}
        WHERE p.slug = ?`,
       [slug]
     );
@@ -199,6 +218,7 @@ const getProductBySlug = async (req, res, next) => {
     }
 
     const product = products[0];
+    applyReviewStats(product);
     product.images = parseJsonArray(product.images);
     product.specifications = parseJsonArray(product.specifications);
 
@@ -216,19 +236,21 @@ const getProductBySlug = async (req, res, next) => {
     const [reviews] = await pool.execute(
       `SELECT r.*, u.name as user_name, u.avatar as user_avatar
        FROM reviews r JOIN users u ON r.user_id = u.id
-       WHERE r.product_id = ? AND r.is_approved = true
+       WHERE r.product_id = ? AND (r.is_approved = true OR r.is_verified_purchase = true)
        ORDER BY r.created_at DESC`,
       [product.id]
     );
 
     const [related] = await pool.execute(
-      `SELECT id, name, slug, price, compare_price, images, rating, review_count
-       FROM products WHERE category_id = ? AND id != ? AND is_active = true
+      `SELECT p.id, p.name, p.slug, p.price, p.compare_price, p.images, ${reviewRatingExpr} as computed_rating, ${reviewCountExpr} as computed_review_count
+       FROM products p ${reviewStatsJoin}
+       WHERE p.category_id = ? AND p.id != ? AND p.is_active = true
        LIMIT 6`,
       [product.category_id, product.id]
     );
 
     related.forEach(p => {
+      applyReviewStats(p);
       p.images = p.images ? JSON.parse(p.images) : [];
     });
 
@@ -576,12 +598,14 @@ const getCategories = async (req, res, next) => {
 const getFeaturedProducts = async (req, res, next) => {
   try {
     const [products] = await pool.execute(
-      `SELECT id, name, slug, price, compare_price, images, rating, review_count, discount_percent
-       FROM products WHERE is_featured = true AND is_active = true AND status = 'active'
+      `SELECT p.id, p.name, p.slug, p.price, p.compare_price, p.images, ${reviewRatingExpr} as computed_rating, ${reviewCountExpr} as computed_review_count, p.discount_percent
+       FROM products p ${reviewStatsJoin}
+       WHERE p.is_featured = true AND p.is_active = true AND p.status = 'active'
        ORDER BY RAND() LIMIT 8`
     );
 
     products.forEach(p => {
+      applyReviewStats(p);
       p.images = p.images ? JSON.parse(p.images) : [];
     });
 

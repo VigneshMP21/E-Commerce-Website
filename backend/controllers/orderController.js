@@ -5,6 +5,12 @@ const config = require('../config');
 
 const stripe = config.stripe.secretKey ? require('stripe')(config.stripe.secretKey) : null;
 
+const syncDeliveredOrderPayments = async () => {
+  await pool.execute(
+    "UPDATE orders SET payment_status = 'paid' WHERE status = 'delivered' AND (payment_status IS NULL OR payment_status != 'paid')"
+  );
+};
+
 const parseJsonArray = (value) => {
   if (!value) return [];
   if (Array.isArray(value)) return value;
@@ -177,9 +183,45 @@ const handleStripeWebhook = async (req, res, next) => {
 const getUserOrders = async (req, res, next) => {
   try {
     const [orders] = await pool.execute(
-      `SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC`,
+      `SELECT o.*, latest_tracking.created_at as status_updated_at
+       FROM orders o
+       LEFT JOIN (
+         SELECT order_id, MAX(created_at) as created_at
+         FROM order_tracking
+         GROUP BY order_id
+       ) latest_tracking ON latest_tracking.order_id = o.id
+       WHERE o.user_id = ?
+       ORDER BY o.created_at DESC`,
       [req.user.id]
     );
+
+    if (!orders.length) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const orderIds = orders.map(order => order.id);
+    const placeholders = orderIds.map(() => '?').join(', ');
+    const [items] = await pool.execute(
+      `SELECT oi.*, p.slug as product_slug, r.rating as user_rating
+       FROM order_items oi
+       LEFT JOIN products p ON p.id = oi.product_id
+       LEFT JOIN reviews r ON r.product_id = oi.product_id AND r.user_id = ?
+       WHERE oi.order_id IN (${placeholders})
+       ORDER BY oi.id ASC`,
+      [req.user.id, ...orderIds]
+    );
+
+    const itemsByOrder = items.reduce((grouped, item) => {
+      const orderItems = grouped.get(item.order_id) || [];
+      orderItems.push(item);
+      grouped.set(item.order_id, orderItems);
+      return grouped;
+    }, new Map());
+
+    orders.forEach(order => {
+      order.items = itemsByOrder.get(order.id) || [];
+    });
+
     res.json({ success: true, data: orders });
   } catch (error) {
     next(error);
@@ -225,20 +267,34 @@ const updateOrderStatus = async (req, res, next) => {
       refunded: 'Refund processed'
     };
 
-    await pool.execute('UPDATE orders SET status = ? WHERE id = ?', [status, id]);
+    const orderUpdates = ['status = ?'];
+    const orderParams = [status];
+
+    if (status === 'delivered') {
+      orderUpdates.push("payment_status = 'paid'", 'delivered_at = COALESCE(delivered_at, NOW())');
+    }
+
+    if (status === 'shipped') {
+      orderUpdates.push('shipped_at = COALESCE(shipped_at, NOW())');
+    }
+
+    await pool.execute(
+      `UPDATE orders SET ${orderUpdates.join(', ')} WHERE id = ?`,
+      [...orderParams, id]
+    );
     await pool.execute(
       'INSERT INTO order_tracking (order_id, status, description) VALUES (?, ?, ?)',
       [id, status, trackingData[status] || 'Status updated']
     );
 
-    if (status === 'shipped') {
-      await pool.execute("UPDATE orders SET shipped_at = NOW() WHERE id = ?", [id]);
-    }
-    if (status === 'delivered') {
-      await pool.execute("UPDATE orders SET delivered_at = NOW() WHERE id = ?", [id]);
-    }
-
-    res.json({ success: true, message: 'Order status updated' });
+    res.json({
+      success: true,
+      message: 'Order status updated',
+      data: {
+        status,
+        paymentStatus: status === 'delivered' ? 'paid' : undefined
+      }
+    });
   } catch (error) {
     next(error);
   }
@@ -247,6 +303,8 @@ const updateOrderStatus = async (req, res, next) => {
 const getAllOrders = async (req, res, next) => {
   try {
     const { page = 1, limit = 20, status } = req.query;
+    await syncDeliveredOrderPayments();
+
     let sql = 'SELECT o.*, u.name as user_name, u.email as user_email FROM orders o JOIN users u ON o.user_id = u.id';
     const params = [];
 
