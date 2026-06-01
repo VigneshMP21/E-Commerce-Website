@@ -3,6 +3,7 @@ import {
   HiOutlineArrowRight,
   HiOutlineChartBar,
   HiOutlineCheckCircle,
+  HiOutlineChevronDown,
   HiOutlineClipboardList,
   HiOutlineCube,
   HiOutlineCurrencyDollar,
@@ -16,6 +17,7 @@ import {
   HiOutlineRefresh,
   HiOutlineSave,
   HiOutlineShoppingBag,
+  HiOutlineTag,
   HiOutlineTrash,
   HiOutlineUpload,
   HiOutlineUsers,
@@ -36,12 +38,19 @@ const initialProductForm = {
   comparePrice: '',
   categoryId: '',
   categoryName: '',
+  categoryImageUrl: '',
   brand: '',
   stockQuantity: '',
   sku: '',
   imageUrl: '',
   status: 'active',
   isFeatured: false
+};
+
+const initialCategoryForm = {
+  name: '',
+  parentId: '',
+  imageUrl: ''
 };
 
 const makeSlug = (value) => value
@@ -78,13 +87,42 @@ const flattenCategories = (categories = []) => categories.flatMap(category => ([
     id: subcategory.id,
     name: `${category.name} / ${subcategory.name}`
   }))
-]));
+  ]));
+
+const flattenCategoryRows = (categories = []) => categories.flatMap(category => {
+  const subcategories = category.subcategories || [];
+
+  return [
+    {
+      ...category,
+      depth: 0,
+      parentName: 'None',
+      subcategoryCount: subcategories.length
+    },
+    ...subcategories.map(subcategory => ({
+      ...subcategory,
+      depth: 1,
+      parentName: category.name,
+      subcategoryCount: 0
+    }))
+  ];
+});
 
 export default function Admin() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [activePanel, setActivePanel] = useState('report');
+  const [categoryForm, setCategoryForm] = useState(initialCategoryForm);
+  const [categorySubmitting, setCategorySubmitting] = useState(false);
+  const [uploadingCategoryImage, setUploadingCategoryImage] = useState(false);
+  const [uploadingProductCategoryImage, setUploadingProductCategoryImage] = useState(false);
+  const [uploadingCategoryEditImageId, setUploadingCategoryEditImageId] = useState(null);
+  const [editingCategoryId, setEditingCategoryId] = useState(null);
+  const [categoryEditForm, setCategoryEditForm] = useState(null);
+  const [deletingCategoryId, setDeletingCategoryId] = useState(null);
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [productForm, setProductForm] = useState(initialProductForm);
   const [productImages, setProductImages] = useState([]);
   const [productSubmitting, setProductSubmitting] = useState(false);
@@ -104,11 +142,17 @@ export default function Admin() {
 
   const productRef = useRef(null);
   const manageProductsRef = useRef(null);
+  const manageCategoriesRef = useRef(null);
+  const categoryDropdownRef = useRef(null);
   const ordersRef = useRef(null);
   const usersRef = useRef(null);
   const reportRef = useRef(null);
 
   const categoryOptions = useMemo(() => flattenCategories(categories), [categories]);
+  const categoryRows = useMemo(() => flattenCategoryRows(categories), [categories]);
+  const parentCategoryOptions = useMemo(() => (
+    categories.map(category => ({ id: category.id, name: category.name }))
+  ), [categories]);
   const monthlyRevenue = stats?.monthlyRevenue || [];
   const peakMonthlyRevenue = useMemo(
     () => Math.max(0, ...monthlyRevenue.map(item => Number(item.revenue) || 0)),
@@ -121,6 +165,14 @@ export default function Admin() {
   );
   const newCategoryPending = productForm.categoryName.trim()
     && !categoryOptions.some(category => category.name.toLowerCase() === productForm.categoryName.trim().toLowerCase());
+  const productCategoryQuery = productForm.categoryName.trim().toLowerCase();
+  const filteredCategoryOptions = useMemo(() => {
+    if (!productCategoryQuery) return categoryOptions;
+
+    return categoryOptions.filter(category => (
+      category.name.toLowerCase().includes(productCategoryQuery)
+    ));
+  }, [categoryOptions, productCategoryQuery]);
   const filteredProducts = useMemo(() => {
     if (manageProductCategory === 'all') return products;
 
@@ -138,10 +190,22 @@ export default function Admin() {
     setStats(res.data.data);
   };
 
+  const loadCategories = async () => {
+    setCategoriesLoading(true);
+    try {
+      const res = await api.get('/products/categories');
+      setCategories(res.data.data || []);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Unable to load categories');
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
+
   useEffect(() => {
     Promise.all([
       loadDashboard(),
-      api.get('/products/categories').then(res => setCategories(res.data.data)).catch(console.error)
+      loadCategories()
     ])
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -164,6 +228,17 @@ export default function Admin() {
       setManageProductCategory('all');
     }
   }, [categoryOptions, manageProductCategory]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!categoryDropdownRef.current?.contains(event.target)) {
+        setCategoryDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const loadOrders = async () => {
     setOrdersLoading(true);
@@ -198,6 +273,167 @@ export default function Admin() {
       toast.error(err.response?.data?.message || 'Unable to load products');
     } finally {
       setProductsLoading(false);
+    }
+  };
+
+  const uploadSingleImage = async (file) => {
+    const formData = new FormData();
+    formData.append('images', file);
+
+    const res = await api.post('/products/images', formData);
+    const uploadedImage = res.data.data?.[0];
+
+    if (!uploadedImage?.url) {
+      throw new Error('Image upload failed');
+    }
+
+    return uploadedImage.url;
+  };
+
+  const handleProductCategoryImageUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadingProductCategoryImage(true);
+    try {
+      const imageUrl = await uploadSingleImage(file);
+      setProductForm(prev => ({ ...prev, categoryImageUrl: imageUrl }));
+      toast.success('Category image uploaded');
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Unable to upload category image');
+    } finally {
+      setUploadingProductCategoryImage(false);
+      event.target.value = '';
+    }
+  };
+
+  const handleCategoryImageUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadingCategoryImage(true);
+    try {
+      const imageUrl = await uploadSingleImage(file);
+      setCategoryForm(prev => ({ ...prev, imageUrl }));
+      toast.success('Category image uploaded');
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Unable to upload category image');
+    } finally {
+      setUploadingCategoryImage(false);
+      event.target.value = '';
+    }
+  };
+
+  const handleCategoryEditImageUpload = async (event, categoryId) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadingCategoryEditImageId(categoryId);
+    try {
+      const imageUrl = await uploadSingleImage(file);
+      setCategoryEditForm(prev => ({ ...prev, imageUrl }));
+      toast.success('Category image uploaded');
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Unable to upload category image');
+    } finally {
+      setUploadingCategoryEditImageId(null);
+      event.target.value = '';
+    }
+  };
+
+  const clearCategoryForm = () => {
+    setCategoryForm(initialCategoryForm);
+  };
+
+  const startCategoryEdit = (category) => {
+    setEditingCategoryId(category.id);
+    setCategoryEditForm({
+      name: category.name || '',
+      parentId: category.parent_id ? String(category.parent_id) : '',
+      imageUrl: category.image || '',
+      hasChildren: Boolean(category.subcategoryCount)
+    });
+  };
+
+  const cancelCategoryEdit = () => {
+    setEditingCategoryId(null);
+    setCategoryEditForm(null);
+  };
+
+  const handleCategorySubmit = async (e) => {
+    e.preventDefault();
+    const name = categoryForm.name.trim();
+
+    if (!name) {
+      toast.error('Category name is required');
+      return;
+    }
+
+    setCategorySubmitting(true);
+    try {
+      const res = await api.post('/products/categories', {
+        name,
+        parentId: categoryForm.parentId ? Number(categoryForm.parentId) : null,
+        image: categoryForm.imageUrl.trim() || null
+      });
+
+      toast.success(res.data.message || 'Category created');
+      clearCategoryForm();
+      await loadCategories();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Unable to create category');
+    } finally {
+      setCategorySubmitting(false);
+    }
+  };
+
+  const handleCategoryUpdate = async (categoryId) => {
+    const name = categoryEditForm?.name.trim();
+
+    if (!name) {
+      toast.error('Category name is required');
+      return;
+    }
+
+    try {
+      await api.put(`/products/categories/${categoryId}`, {
+        name,
+        parentId: categoryEditForm.parentId ? Number(categoryEditForm.parentId) : null,
+        image: categoryEditForm.imageUrl.trim() || null
+      });
+
+      toast.success('Category updated');
+      cancelCategoryEdit();
+      await Promise.all([
+        loadCategories(),
+        products.length ? loadProducts() : Promise.resolve()
+      ]);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Unable to update category');
+    }
+  };
+
+  const handleCategoryDelete = async (category) => {
+    const details = [];
+    if (Number(category.product_count) > 0) details.push(`${category.product_count} product(s) will become unassigned`);
+    if (category.subcategoryCount > 0) details.push(`${category.subcategoryCount} subcategory(s) will move to top level`);
+    const suffix = details.length ? ` ${details.join(' and ')}.` : '';
+    const confirmed = window.confirm(`Delete "${category.name}"?${suffix}`);
+    if (!confirmed) return;
+
+    setDeletingCategoryId(category.id);
+    try {
+      await api.delete(`/products/categories/${category.id}`);
+      toast.success('Category deleted');
+      cancelCategoryEdit();
+      await Promise.all([
+        loadCategories(),
+        products.length ? loadProducts() : Promise.resolve()
+      ]);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Unable to delete category');
+    } finally {
+      setDeletingCategoryId(null);
     }
   };
 
@@ -275,6 +511,7 @@ export default function Admin() {
     const refs = {
       product: productRef,
       manageProducts: manageProductsRef,
+      manageCategories: manageCategoriesRef,
       orders: ordersRef,
       users: usersRef,
       report: reportRef
@@ -288,6 +525,7 @@ export default function Admin() {
   const handleQuickAction = (panel) => {
     setActivePanel(panel);
     if (panel === 'manageProducts') loadProducts();
+    if (panel === 'manageCategories') loadCategories();
     if (panel === 'orders') loadOrders();
     if (panel === 'users') loadUsers();
     scrollToPanel(panel);
@@ -306,8 +544,14 @@ export default function Admin() {
     setProductForm(prev => ({
       ...prev,
       categoryName: value,
-      categoryId: match ? String(match.id) : ''
+      categoryId: match ? String(match.id) : '',
+      categoryImageUrl: match ? '' : prev.categoryImageUrl
     }));
+  };
+
+  const handleCategorySelect = (category) => {
+    handleCategoryChange(category.name);
+    setCategoryDropdownOpen(false);
   };
 
   const refreshCategories = async () => {
@@ -322,7 +566,10 @@ export default function Admin() {
     const matchedCategory = findCategoryMatch(trimmedCategory);
     if (matchedCategory) return Number(matchedCategory.id);
 
-    const res = await api.post('/products/categories', { name: trimmedCategory });
+    const res = await api.post('/products/categories', {
+      name: trimmedCategory,
+      image: productForm.categoryImageUrl.trim() || null
+    });
     const category = res.data.data;
     if (!category?.id) {
       throw new Error('Category could not be created');
@@ -331,7 +578,8 @@ export default function Admin() {
     setProductForm(prev => ({
       ...prev,
       categoryId: String(category.id),
-      categoryName: category.name
+      categoryName: category.name,
+      categoryImageUrl: ''
     }));
     await refreshCategories();
     return Number(category.id);
@@ -503,6 +751,14 @@ export default function Admin() {
       metric: `${products.length || stats?.totalProducts || 0} products listed`
     },
     {
+      key: 'manageCategories',
+      label: 'Manage Category',
+      description: 'Create, edit or remove categories',
+      icon: HiOutlineTag,
+      accent: 'text-amber-600 bg-amber-50 dark:bg-amber-900/30',
+      metric: `${categoryRows.length} categories listed`
+    },
+    {
       key: 'orders',
       label: 'View Orders',
       description: 'Review and update fulfillment',
@@ -629,20 +885,104 @@ export default function Admin() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Category</label>
-              <input
-                className="input-field"
-                list="admin-category-options"
-                value={productForm.categoryName}
-                onChange={e => handleCategoryChange(e.target.value)}
-                placeholder="Type or select category"
-              />
-              <datalist id="admin-category-options">
-                {categoryOptions.map(category => (
-                  <option key={category.id} value={category.name} />
-                ))}
-              </datalist>
+              <div ref={categoryDropdownRef} className="relative">
+                <div
+                  className={`flex items-center rounded-xl border bg-white transition-all duration-200 dark:bg-gray-900 ${
+                    categoryDropdownOpen
+                      ? 'border-primary-500 ring-2 ring-primary-100 dark:ring-primary-900/40'
+                      : 'border-gray-200 hover:border-primary-200 dark:border-gray-700 dark:hover:border-primary-800'
+                  }`}
+                >
+                  <input
+                    className="min-w-0 flex-1 bg-transparent px-4 py-3 text-gray-900 placeholder-gray-400 outline-none dark:text-gray-100"
+                    value={productForm.categoryName}
+                    onFocus={() => setCategoryDropdownOpen(true)}
+                    onChange={e => {
+                      handleCategoryChange(e.target.value);
+                      setCategoryDropdownOpen(true);
+                    }}
+                    placeholder="Type or select category"
+                    role="combobox"
+                    aria-expanded={categoryDropdownOpen}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setCategoryDropdownOpen(open => !open)}
+                    className="mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-white"
+                    aria-label="Toggle category options"
+                  >
+                    <HiOutlineChevronDown
+                      size={18}
+                      className={`transition-transform ${categoryDropdownOpen ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+                </div>
+
+                {categoryDropdownOpen && (
+                  <div className="absolute z-40 mt-2 max-h-72 w-full overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-xl shadow-gray-200/70 dark:border-gray-800 dark:bg-gray-900 dark:shadow-black/20">
+                    <div className="max-h-72 overflow-y-auto p-2">
+                      {filteredCategoryOptions.length > 0 ? (
+                        filteredCategoryOptions.map(category => {
+                          const selected = productForm.categoryName.trim().toLowerCase() === category.name.toLowerCase();
+
+                          return (
+                            <button
+                              key={category.id}
+                              type="button"
+                              onClick={() => handleCategorySelect(category)}
+                              className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors ${
+                                selected
+                                  ? 'bg-primary-50 text-primary-700 dark:bg-primary-950/40 dark:text-primary-300'
+                                  : 'text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800'
+                              }`}
+                            >
+                              <span className="min-w-0">
+                                <span className="block truncate font-medium">{category.name}</span>
+                                <span className="mt-0.5 block text-xs text-gray-400">Existing category</span>
+                              </span>
+                              {selected && <HiOutlineCheckCircle size={18} className="shrink-0" />}
+                            </button>
+                          );
+                        })
+                      ) : (
+                        <div className="rounded-xl bg-primary-50/70 px-3 py-3 text-sm text-primary-700 dark:bg-primary-950/30 dark:text-primary-300">
+                          <span className="font-medium">Create new category</span>
+                          <span className="mt-1 block text-xs">"{productForm.categoryName.trim()}" will be added when this product is created.</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
               {newCategoryPending && (
-                <p className="mt-1.5 text-xs text-primary-600">New category will be added to the dropdown list.</p>
+                <div className="mt-3 rounded-xl border border-primary-100 bg-primary-50/60 p-3 dark:border-primary-900 dark:bg-primary-950/20">
+                  <p className="text-xs font-medium text-primary-700 dark:text-primary-300">New category will be added to the dropdown list.</p>
+                  <label className="mt-3 block text-xs font-medium text-gray-500">Category Image</label>
+                  <div className="mt-1.5 flex flex-col gap-2 sm:flex-row">
+                    <input
+                      className="input-field !py-2.5 text-sm"
+                      value={productForm.categoryImageUrl}
+                      onChange={e => setProductForm(prev => ({ ...prev, categoryImageUrl: e.target.value }))}
+                      placeholder="https://example.com/category-banner.jpg"
+                    />
+                    <label className="btn-secondary shrink-0 cursor-pointer gap-2 !py-2.5 text-sm">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={uploadingProductCategoryImage}
+                        onChange={handleProductCategoryImageUpload}
+                        className="sr-only"
+                      />
+                      <HiOutlineUpload size={16} />
+                      {uploadingProductCategoryImage ? 'Uploading...' : 'Upload'}
+                    </label>
+                  </div>
+                  {productForm.categoryImageUrl && (
+                    <div className="mt-3 overflow-hidden rounded-lg border border-white/80 bg-white dark:border-gray-800 dark:bg-gray-900">
+                      <img src={productForm.categoryImageUrl} alt="New category preview" className="h-24 w-full object-cover" />
+                    </div>
+                  )}
+                </div>
               )}
             </div>
             <div>
@@ -1000,6 +1340,229 @@ export default function Admin() {
                       {products.length === 0 ? 'No products found' : 'No products found in this category'}
                     </td>
                   </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {activePanel === 'manageCategories' && (
+        <div ref={manageCategoriesRef} className="card p-6 mb-8 scroll-mt-24">
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="font-semibold text-lg flex items-center gap-2">
+                <HiOutlineTag size={20} className="text-amber-600" />
+                Manage Category
+              </h3>
+              <p className="text-sm text-gray-500">Create, edit or remove product categories.</p>
+            </div>
+            <button type="button" onClick={loadCategories} className="btn-secondary gap-2 !py-2">
+              <HiOutlineRefresh size={16} />
+              Reload
+            </button>
+          </div>
+
+          <form
+            onSubmit={handleCategorySubmit}
+            className="mb-5 grid gap-3 rounded-2xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-800/50 lg:grid-cols-[minmax(0,1fr)_220px_minmax(0,1fr)_auto]"
+          >
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-500">Category Name</label>
+              <input
+                className="input-field !py-2.5"
+                value={categoryForm.name}
+                onChange={e => setCategoryForm(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Accessories"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-500">Parent Category</label>
+              <select
+                className="input-field !py-2.5"
+                value={categoryForm.parentId}
+                onChange={e => setCategoryForm(prev => ({ ...prev, parentId: e.target.value }))}
+              >
+                <option value="">No parent</option>
+                {parentCategoryOptions.map(category => (
+                  <option key={category.id} value={category.id}>{category.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-500">Category Image</label>
+              <div className="flex flex-col gap-2 sm:flex-row lg:flex-col xl:flex-row">
+                <input
+                  className="input-field !py-2.5"
+                  value={categoryForm.imageUrl}
+                  onChange={e => setCategoryForm(prev => ({ ...prev, imageUrl: e.target.value }))}
+                  placeholder="Image URL"
+                />
+                <label className="btn-secondary shrink-0 cursor-pointer gap-2 !py-2.5 text-sm">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={uploadingCategoryImage}
+                    onChange={handleCategoryImageUpload}
+                    className="sr-only"
+                  />
+                  <HiOutlineUpload size={16} />
+                  {uploadingCategoryImage ? 'Uploading...' : 'Upload'}
+                </label>
+              </div>
+              {categoryForm.imageUrl && (
+                <div className="mt-2 overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                  <img src={categoryForm.imageUrl} alt="Category preview" className="h-20 w-full object-cover" />
+                </div>
+              )}
+            </div>
+            <div className="flex items-end">
+              <button type="submit" disabled={categorySubmitting} className="btn-primary w-full gap-2 !py-2.5">
+                <HiOutlinePlus size={17} />
+                {categorySubmitting ? 'Adding...' : 'Add Category'}
+              </button>
+            </div>
+          </form>
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400 dark:border-gray-800">
+                <tr>
+                  <th className="py-3 pr-4">Category</th>
+                  <th className="py-3 pr-4">Parent</th>
+                  <th className="py-3 pr-4">Slug</th>
+                  <th className="py-3 pr-4">Products</th>
+                  <th className="py-3 pr-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {categoriesLoading && (
+                  <tr><td colSpan="5" className="py-6 text-center text-gray-500">Loading categories...</td></tr>
+                )}
+                {!categoriesLoading && categoryRows.map(category => {
+                  const isEditing = editingCategoryId === category.id && categoryEditForm;
+                  const parentLocked = Boolean(categoryEditForm?.hasChildren);
+
+                  return [
+                    <tr key={category.id}>
+                      <td className="py-3 pr-4">
+                        <div className={`flex items-center gap-3 ${category.depth ? 'pl-6' : ''}`}>
+                          <span className="flex h-12 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-900/30">
+                            {category.image ? (
+                              <img src={category.image} alt={category.name} className="h-full w-full object-cover" />
+                            ) : (
+                              <HiOutlineTag size={18} />
+                            )}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="truncate font-medium text-gray-900 dark:text-white">{category.name}</p>
+                            <p className="text-xs text-gray-500">
+                              {category.depth ? 'Subcategory' : `${category.subcategoryCount} subcategories`}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 pr-4 text-gray-500">{category.parentName}</td>
+                      <td className="py-3 pr-4 text-gray-500">{category.slug}</td>
+                      <td className="py-3 pr-4 font-medium">{category.product_count || 0}</td>
+                      <td className="py-3 pr-4">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => startCategoryEdit(category)}
+                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:border-primary-200 hover:bg-primary-50 hover:text-primary-600 dark:border-gray-700 dark:text-gray-300 dark:hover:border-primary-800 dark:hover:bg-primary-950/30"
+                            aria-label={`Edit ${category.name}`}
+                          >
+                            <HiOutlinePencil size={17} />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={deletingCategoryId === category.id}
+                            onClick={() => handleCategoryDelete(category)}
+                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:text-gray-300 dark:hover:border-red-900 dark:hover:bg-red-950/30"
+                            aria-label={`Delete ${category.name}`}
+                          >
+                            <HiOutlineTrash size={17} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>,
+                    isEditing && (
+                      <tr key={`${category.id}-edit`} className="bg-gray-50/80 dark:bg-gray-800/50">
+                        <td colSpan="5" className="py-4">
+                          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_minmax(0,1fr)_auto]">
+                            <div>
+                              <label className="mb-1 block text-xs font-medium text-gray-500">Name</label>
+                              <input
+                                className="input-field"
+                                value={categoryEditForm.name}
+                                onChange={e => setCategoryEditForm(prev => ({ ...prev, name: e.target.value }))}
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-xs font-medium text-gray-500">Parent</label>
+                              <select
+                                className="input-field"
+                                value={categoryEditForm.parentId}
+                                disabled={parentLocked}
+                                onChange={e => setCategoryEditForm(prev => ({ ...prev, parentId: e.target.value }))}
+                              >
+                                <option value="">No parent</option>
+                                {parentCategoryOptions
+                                  .filter(parent => parent.id !== category.id)
+                                  .map(parent => (
+                                    <option key={parent.id} value={parent.id}>{parent.name}</option>
+                                  ))}
+                              </select>
+                              {parentLocked && (
+                                <p className="mt-1 text-xs text-gray-500">Parent is locked while subcategories exist.</p>
+                              )}
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-xs font-medium text-gray-500">Image</label>
+                              <div className="flex flex-col gap-2 sm:flex-row lg:flex-col xl:flex-row">
+                                <input
+                                  className="input-field"
+                                  value={categoryEditForm.imageUrl}
+                                  onChange={e => setCategoryEditForm(prev => ({ ...prev, imageUrl: e.target.value }))}
+                                  placeholder="Image URL"
+                                />
+                                <label className="btn-secondary shrink-0 cursor-pointer gap-2 !py-2.5 text-sm">
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    disabled={uploadingCategoryEditImageId === category.id}
+                                    onChange={event => handleCategoryEditImageUpload(event, category.id)}
+                                    className="sr-only"
+                                  />
+                                  <HiOutlineUpload size={16} />
+                                  {uploadingCategoryEditImageId === category.id ? 'Uploading...' : 'Upload'}
+                                </label>
+                              </div>
+                              {categoryEditForm.imageUrl && (
+                                <div className="mt-2 overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                                  <img src={categoryEditForm.imageUrl} alt={`${category.name} preview`} className="h-20 w-full object-cover" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-end justify-end gap-2">
+                              <button type="button" onClick={cancelCategoryEdit} className="btn-secondary gap-2 !py-2">
+                                <HiOutlineX size={16} />
+                                Cancel
+                              </button>
+                              <button type="button" onClick={() => handleCategoryUpdate(category.id)} className="btn-primary gap-2 !py-2">
+                                <HiOutlineSave size={16} />
+                                Save
+                              </button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  ];
+                })}
+                {!categoriesLoading && categoryRows.length === 0 && (
+                  <tr><td colSpan="5" className="py-6 text-center text-gray-500">No categories found</td></tr>
                 )}
               </tbody>
             </table>

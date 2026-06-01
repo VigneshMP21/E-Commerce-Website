@@ -15,6 +15,10 @@ router.get('/:slug', optionalAuth, productController.getProductBySlug);
 router.post('/categories', authenticate, authorize('admin'), [
   body('name').trim().notEmpty().withMessage('Category name is required')
 ], validate, productController.createCategory);
+router.put('/categories/:id', authenticate, authorize('admin'), [
+  body('name').optional().trim().notEmpty().withMessage('Category name is required')
+], validate, productController.updateCategory);
+router.delete('/categories/:id', authenticate, authorize('admin'), productController.deleteCategory);
 
 router.post('/images', authenticate, authorize('admin'), upload.array('images', 12), productController.uploadProductImages);
 

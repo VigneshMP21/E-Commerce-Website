@@ -20,6 +20,8 @@ export default function Categories() {
     'Books': 'https://images.unsplash.com/photo-1495446815901-a7297e633e8d?w=600',
     'Sports': 'https://images.unsplash.com/photo-1461896836934-bd45ba8fcf9b?w=600'
   };
+  const fallbackCategoryImage = 'https://via.placeholder.com/600x338?text=Category';
+  const getCategoryImage = (category) => category.image || categoryImages[category.name] || fallbackCategoryImage;
 
   return (
     <div className="container-custom py-6 md:py-8">
@@ -30,8 +32,17 @@ export default function Categories() {
         {categories.map(cat => (
           <Link key={cat.id} to={`/shop?category=${cat.slug}`} className="group card overflow-hidden">
             <div className="relative aspect-[16/9] overflow-hidden">
-              <img src={categoryImages[cat.name] || 'https://via.placeholder.com/600'} alt={cat.name}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+              <img
+                src={getCategoryImage(cat)}
+                alt={cat.name}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                loading="lazy"
+                onError={e => {
+                  if (e.currentTarget.dataset.fallbackApplied) return;
+                  e.currentTarget.dataset.fallbackApplied = 'true';
+                  e.currentTarget.src = categoryImages[cat.name] || fallbackCategoryImage;
+                }}
+              />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 p-6">
                 <h3 className="text-white font-bold text-xl">{cat.name}</h3>

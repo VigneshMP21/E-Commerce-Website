@@ -18,6 +18,36 @@ const parseJsonArray = (value) => {
   }
 };
 
+const getUniqueCategorySlug = async (name, excludeId = null) => {
+  const slugBase = makeSlug(name);
+  if (!slugBase) {
+    throw new AppError('Category name must contain letters or numbers', 400);
+  }
+
+  let slug = slugBase;
+  let suffix = 2;
+
+  while (true) {
+    const params = [slug];
+    let sql = 'SELECT id FROM categories WHERE slug = ?';
+
+    if (excludeId) {
+      sql += ' AND id != ?';
+      params.push(excludeId);
+    }
+
+    sql += ' LIMIT 1';
+
+    const [existingSlug] = await pool.execute(sql, params);
+    if (!existingSlug.length) break;
+
+    slug = `${slugBase}-${suffix}`;
+    suffix += 1;
+  }
+
+  return slug;
+};
+
 const getProducts = async (req, res, next) => {
   try {
     const {
@@ -225,11 +255,6 @@ const createCategory = async (req, res, next) => {
       throw new AppError('Valid parent category is required', 400);
     }
 
-    const slugBase = makeSlug(trimmedName);
-    if (!slugBase) {
-      throw new AppError('Category name must contain letters or numbers', 400);
-    }
-
     const [existingByName] = await pool.execute(
       'SELECT * FROM categories WHERE LOWER(name) = LOWER(?) AND parent_id <=> ? LIMIT 1',
       [trimmedName, parentCategoryId]
@@ -243,17 +268,7 @@ const createCategory = async (req, res, next) => {
       });
     }
 
-    let slug = slugBase;
-    let suffix = 2;
-    while (true) {
-      const [existingSlug] = await pool.execute(
-        'SELECT id FROM categories WHERE slug = ? LIMIT 1',
-        [slug]
-      );
-      if (!existingSlug.length) break;
-      slug = `${slugBase}-${suffix}`;
-      suffix += 1;
-    }
+    const slug = await getUniqueCategorySlug(trimmedName);
 
     const [result] = await pool.execute(
       `INSERT INTO categories (name, slug, description, image, parent_id, is_active)
@@ -274,6 +289,141 @@ const createCategory = async (req, res, next) => {
         is_active: true
       }
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateCategory = async (req, res, next) => {
+  try {
+    const categoryId = Number(req.params.id);
+    const { name, description, image, parentId } = req.body;
+
+    if (Number.isNaN(categoryId)) {
+      throw new AppError('Valid category is required', 400);
+    }
+
+    const [categories] = await pool.execute(
+      'SELECT * FROM categories WHERE id = ? LIMIT 1',
+      [categoryId]
+    );
+
+    if (!categories.length) {
+      throw new AppError('Category not found', 404);
+    }
+
+    const currentCategory = categories[0];
+    const nextName = name !== undefined ? String(name).trim() : currentCategory.name;
+    let nextParentId = currentCategory.parent_id;
+
+    if (!nextName) {
+      throw new AppError('Category name is required', 400);
+    }
+
+    if (parentId !== undefined) {
+      nextParentId = parentId === null || parentId === '' ? null : Number(parentId);
+
+      if (nextParentId !== null && Number.isNaN(nextParentId)) {
+        throw new AppError('Valid parent category is required', 400);
+      }
+    }
+
+    if (nextParentId !== null) {
+      if (nextParentId === categoryId) {
+        throw new AppError('A category cannot be its own parent', 400);
+      }
+
+      const [parents] = await pool.execute(
+        'SELECT id, parent_id FROM categories WHERE id = ? AND is_active = true LIMIT 1',
+        [nextParentId]
+      );
+
+      if (!parents.length) {
+        throw new AppError('Parent category not found', 404);
+      }
+
+      if (parents[0].parent_id) {
+        throw new AppError('Parent category must be a top-level category', 400);
+      }
+
+      const [children] = await pool.execute(
+        'SELECT COUNT(*) as total FROM categories WHERE parent_id = ? AND is_active = true',
+        [categoryId]
+      );
+
+      if (children[0].total > 0) {
+        throw new AppError('Move or delete subcategories before assigning a parent category', 400);
+      }
+    }
+
+    const [duplicates] = await pool.execute(
+      'SELECT id FROM categories WHERE LOWER(name) = LOWER(?) AND parent_id <=> ? AND id != ? LIMIT 1',
+      [nextName, nextParentId, categoryId]
+    );
+
+    if (duplicates.length) {
+      throw new AppError('Category already exists', 409);
+    }
+
+    const fields = [];
+    const values = [];
+
+    if (name !== undefined) {
+      fields.push('name = ?', 'slug = ?');
+      values.push(nextName, await getUniqueCategorySlug(nextName, categoryId));
+    }
+
+    if (parentId !== undefined) {
+      fields.push('parent_id = ?');
+      values.push(nextParentId);
+    }
+
+    if (description !== undefined) {
+      fields.push('description = ?');
+      values.push(description || null);
+    }
+
+    if (image !== undefined) {
+      fields.push('image = ?');
+      values.push(image || null);
+    }
+
+    if (!fields.length) {
+      throw new AppError('No fields to update', 400);
+    }
+
+    values.push(categoryId);
+    await pool.execute(
+      `UPDATE categories SET ${fields.join(', ')} WHERE id = ?`,
+      values
+    );
+
+    res.json({ success: true, message: 'Category updated successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteCategory = async (req, res, next) => {
+  try {
+    const categoryId = Number(req.params.id);
+
+    if (Number.isNaN(categoryId)) {
+      throw new AppError('Valid category is required', 400);
+    }
+
+    const [categories] = await pool.execute(
+      'SELECT id FROM categories WHERE id = ? LIMIT 1',
+      [categoryId]
+    );
+
+    if (!categories.length) {
+      throw new AppError('Category not found', 404);
+    }
+
+    await pool.execute('DELETE FROM categories WHERE id = ?', [categoryId]);
+
+    res.json({ success: true, message: 'Category deleted successfully' });
   } catch (error) {
     next(error);
   }
@@ -406,5 +556,6 @@ const getFeaturedProducts = async (req, res, next) => {
 
 module.exports = {
   getProducts, getProductBySlug, createProduct, updateProduct, deleteProduct,
-  getCategories, getFeaturedProducts, createCategory, uploadProductImages
+  getCategories, getFeaturedProducts, createCategory, updateCategory, deleteCategory,
+  uploadProductImages
 };
