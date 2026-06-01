@@ -5,11 +5,18 @@ const { validate } = require('../middleware/validate');
 const productController = require('../controllers/productController');
 const { authenticate, authorize } = require('../middleware/auth');
 const { optionalAuth } = require('../middleware/optionalAuth');
+const upload = require('../middleware/upload');
 
 router.get('/', productController.getProducts);
 router.get('/featured', productController.getFeaturedProducts);
 router.get('/categories', productController.getCategories);
 router.get('/:slug', optionalAuth, productController.getProductBySlug);
+
+router.post('/categories', authenticate, authorize('admin'), [
+  body('name').trim().notEmpty().withMessage('Category name is required')
+], validate, productController.createCategory);
+
+router.post('/images', authenticate, authorize('admin'), upload.array('images', 12), productController.uploadProductImages);
 
 router.post('/', authenticate, authorize('admin'), [
   body('name').trim().notEmpty().withMessage('Product name is required'),

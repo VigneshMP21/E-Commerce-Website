@@ -8,10 +8,18 @@ import {
   HiOutlineCurrencyDollar,
   HiOutlineDocumentReport,
   HiOutlineExclamationCircle,
+  HiOutlineMenuAlt4,
+  HiOutlinePhotograph,
+  HiOutlinePencil,
+  HiOutlinePlus,
   HiOutlinePlusCircle,
   HiOutlineRefresh,
+  HiOutlineSave,
   HiOutlineShoppingBag,
-  HiOutlineUsers
+  HiOutlineTrash,
+  HiOutlineUpload,
+  HiOutlineUsers,
+  HiOutlineX
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -27,6 +35,7 @@ const initialProductForm = {
   price: '',
   comparePrice: '',
   categoryId: '',
+  categoryName: '',
   brand: '',
   stockQuantity: '',
   sku: '',
@@ -40,6 +49,28 @@ const makeSlug = (value) => value
   .trim()
   .replace(/[^a-z0-9]+/g, '-')
   .replace(/(^-|-$)/g, '');
+
+const makeImageItem = (url, source = 'url', name = '') => ({
+  id: `${source}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  url,
+  source,
+  name
+});
+
+const parseImageUrls = (value = '') => value
+  .split(/[\n,]+/)
+  .map(url => url.trim())
+  .filter(Boolean);
+
+const uniqueUrls = (urls = []) => {
+  const seen = new Set();
+  return urls.filter(url => {
+    const normalized = url.trim().toLowerCase();
+    if (!normalized || seen.has(normalized)) return false;
+    seen.add(normalized);
+    return true;
+  });
+};
 
 const flattenCategories = (categories = []) => categories.flatMap(category => ([
   { id: category.id, name: category.name },
@@ -55,7 +86,15 @@ export default function Admin() {
   const [categories, setCategories] = useState([]);
   const [activePanel, setActivePanel] = useState('report');
   const [productForm, setProductForm] = useState(initialProductForm);
+  const [productImages, setProductImages] = useState([]);
   const [productSubmitting, setProductSubmitting] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [draggedImageIndex, setDraggedImageIndex] = useState(null);
+  const [products, setProducts] = useState([]);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [deletingProductId, setDeletingProductId] = useState(null);
+  const [editingProductId, setEditingProductId] = useState(null);
+  const [productEditForm, setProductEditForm] = useState(null);
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [updatingOrderId, setUpdatingOrderId] = useState(null);
@@ -63,6 +102,7 @@ export default function Admin() {
   const [usersLoading, setUsersLoading] = useState(false);
 
   const productRef = useRef(null);
+  const manageProductsRef = useRef(null);
   const ordersRef = useRef(null);
   const usersRef = useRef(null);
   const reportRef = useRef(null);
@@ -78,6 +118,14 @@ export default function Admin() {
     () => Math.max(1, ...(stats?.ordersByStatus || []).map(item => Number(item.count) || 0)),
     [stats?.ordersByStatus]
   );
+  const newCategoryPending = productForm.categoryName.trim()
+    && !categoryOptions.some(category => category.name.toLowerCase() === productForm.categoryName.trim().toLowerCase());
+
+  const findCategoryMatch = (value) => {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return null;
+    return categoryOptions.find(category => category.name.toLowerCase() === normalized) || null;
+  };
 
   const loadDashboard = async () => {
     const res = await api.get('/users/dashboard');
@@ -92,6 +140,15 @@ export default function Admin() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!productForm.categoryName.trim() || productForm.categoryId) return;
+
+    const match = findCategoryMatch(productForm.categoryName);
+    if (match) {
+      setProductForm(prev => ({ ...prev, categoryId: String(match.id) }));
+    }
+  }, [categoryOptions, productForm.categoryId, productForm.categoryName]);
 
   const loadOrders = async () => {
     setOrdersLoading(true);
@@ -117,9 +174,92 @@ export default function Admin() {
     }
   };
 
+  const loadProducts = async () => {
+    setProductsLoading(true);
+    try {
+      const res = await api.get('/products?status=all&limit=1000&sort=newest');
+      setProducts(res.data.data || []);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Unable to load products');
+    } finally {
+      setProductsLoading(false);
+    }
+  };
+
+  const startProductEdit = (product) => {
+    setEditingProductId(product.id);
+    setProductEditForm({
+      name: product.name || '',
+      price: product.price ?? '',
+      comparePrice: product.compare_price ?? '',
+      categoryId: product.category_id ? String(product.category_id) : '',
+      stockQuantity: product.stock_quantity ?? '',
+      sku: product.sku || '',
+      status: product.status || 'active',
+      isFeatured: Boolean(product.is_featured)
+    });
+  };
+
+  const cancelProductEdit = () => {
+    setEditingProductId(null);
+    setProductEditForm(null);
+  };
+
+  const handleProductUpdate = async (productId) => {
+    if (!productEditForm?.name.trim()) {
+      toast.error('Product name is required');
+      return;
+    }
+
+    const price = Number(productEditForm.price);
+    const comparePrice = productEditForm.comparePrice ? Number(productEditForm.comparePrice) : null;
+    const stockQuantity = productEditForm.stockQuantity ? Number(productEditForm.stockQuantity) : 0;
+
+    if (Number.isNaN(price)) {
+      toast.error('Valid price is required');
+      return;
+    }
+
+    try {
+      await api.put(`/products/${productId}`, {
+        name: productEditForm.name.trim(),
+        price,
+        comparePrice,
+        categoryId: productEditForm.categoryId ? Number(productEditForm.categoryId) : null,
+        stockQuantity,
+        sku: productEditForm.sku.trim() || null,
+        status: productEditForm.status,
+        isFeatured: productEditForm.isFeatured
+      });
+      toast.success('Product updated');
+      cancelProductEdit();
+      await Promise.all([loadProducts(), loadDashboard()]);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Unable to update product');
+    }
+  };
+
+  const handleProductDelete = async (product) => {
+    const confirmed = window.confirm(`Delete "${product.name}"? This action cannot be undone.`);
+    if (!confirmed) return;
+
+    setDeletingProductId(product.id);
+    try {
+      await api.delete(`/products/${product.id}`);
+      setProducts(current => current.filter(item => item.id !== product.id));
+      toast.success('Product deleted');
+      await loadDashboard();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Unable to delete product');
+    } finally {
+      setDeletingProductId(null);
+    }
+  };
+
   const scrollToPanel = (panel) => {
     const refs = {
       product: productRef,
+      manageProducts: manageProductsRef,
       orders: ordersRef,
       users: usersRef,
       report: reportRef
@@ -132,6 +272,7 @@ export default function Admin() {
 
   const handleQuickAction = (panel) => {
     setActivePanel(panel);
+    if (panel === 'manageProducts') loadProducts();
     if (panel === 'orders') loadOrders();
     if (panel === 'users') loadUsers();
     scrollToPanel(panel);
@@ -143,6 +284,109 @@ export default function Admin() {
       name: value,
       slug: !prev.slug || prev.slug === makeSlug(prev.name) ? makeSlug(value) : prev.slug
     }));
+  };
+
+  const handleCategoryChange = (value) => {
+    const match = findCategoryMatch(value);
+    setProductForm(prev => ({
+      ...prev,
+      categoryName: value,
+      categoryId: match ? String(match.id) : ''
+    }));
+  };
+
+  const refreshCategories = async () => {
+    const res = await api.get('/products/categories');
+    setCategories(res.data.data || []);
+  };
+
+  const resolveCategoryId = async () => {
+    const trimmedCategory = productForm.categoryName.trim();
+    if (!trimmedCategory) return null;
+
+    const matchedCategory = findCategoryMatch(trimmedCategory);
+    if (matchedCategory) return Number(matchedCategory.id);
+
+    const res = await api.post('/products/categories', { name: trimmedCategory });
+    const category = res.data.data;
+    if (!category?.id) {
+      throw new Error('Category could not be created');
+    }
+
+    setProductForm(prev => ({
+      ...prev,
+      categoryId: String(category.id),
+      categoryName: category.name
+    }));
+    await refreshCategories();
+    return Number(category.id);
+  };
+
+  const addImageUrls = () => {
+    const urls = uniqueUrls(parseImageUrls(productForm.imageUrl));
+
+    if (!urls.length) {
+      toast.error('Enter at least one image URL');
+      return;
+    }
+
+    const existing = new Set(productImages.map(image => image.url.trim().toLowerCase()));
+    const additions = urls
+      .filter(url => !existing.has(url.trim().toLowerCase()))
+      .map(url => makeImageItem(url));
+
+    if (!additions.length) {
+      toast.error('Those image URLs are already in the list');
+      return;
+    }
+
+    setProductImages(prev => [...prev, ...additions]);
+    setProductForm(prev => ({ ...prev, imageUrl: '' }));
+  };
+
+  const handleImageUpload = async (event) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+
+    const formData = new FormData();
+    files.forEach(file => formData.append('images', file));
+
+    setUploadingImages(true);
+    try {
+      const res = await api.post('/products/images', formData);
+      const uploadedImages = (res.data.data || []).map(file => (
+        makeImageItem(file.url, 'upload', file.originalName || file.filename || 'Uploaded image')
+      ));
+
+      setProductImages(prev => [...prev, ...uploadedImages]);
+      toast.success(`${uploadedImages.length} image${uploadedImages.length === 1 ? '' : 's'} uploaded`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Unable to upload images');
+    } finally {
+      setUploadingImages(false);
+      event.target.value = '';
+    }
+  };
+
+  const moveImage = (fromIndex, toIndex) => {
+    if (fromIndex === null || fromIndex === toIndex) return;
+
+    setProductImages(prev => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  };
+
+  const removeImage = (imageId) => {
+    setProductImages(prev => prev.filter(image => image.id !== imageId));
+  };
+
+  const clearProductForm = () => {
+    setProductForm(initialProductForm);
+    setProductImages([]);
+    setDraggedImageIndex(null);
   };
 
   const handleProductSubmit = async (e) => {
@@ -159,6 +403,13 @@ export default function Admin() {
 
     setProductSubmitting(true);
     try {
+      const categoryId = await resolveCategoryId();
+      const pendingImageUrls = parseImageUrls(productForm.imageUrl);
+      const images = uniqueUrls([
+        ...productImages.map(image => image.url),
+        ...pendingImageUrls
+      ]);
+
       await api.post('/products', {
         name: productForm.name.trim(),
         slug,
@@ -166,18 +417,18 @@ export default function Admin() {
         description: productForm.description.trim() || productForm.shortDescription.trim() || null,
         price,
         comparePrice,
-        categoryId: productForm.categoryId ? Number(productForm.categoryId) : null,
+        categoryId,
         brand: productForm.brand.trim() || null,
         stockQuantity,
         sku: productForm.sku.trim() || null,
-        images: productForm.imageUrl.split(',').map(url => url.trim()).filter(Boolean),
+        images,
         specifications: [],
         isFeatured: productForm.isFeatured,
         status: productForm.status
       });
 
       toast.success('Product created successfully');
-      setProductForm(initialProductForm);
+      clearProductForm();
       await loadDashboard();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Unable to create product');
@@ -227,6 +478,14 @@ export default function Admin() {
       icon: HiOutlinePlusCircle,
       accent: 'text-primary-600 bg-primary-50 dark:bg-primary-900/30',
       metric: `${stats?.totalProducts || 0} live products`
+    },
+    {
+      key: 'manageProducts',
+      label: 'Manage Product',
+      description: 'Edit or remove catalog items',
+      icon: HiOutlineCube,
+      accent: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30',
+      metric: `${products.length || stats?.totalProducts || 0} products listed`
     },
     {
       key: 'orders',
@@ -291,7 +550,7 @@ export default function Admin() {
           </div>
           <span className="hidden sm:inline-flex badge-primary">Admin tools</span>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {quickActions.map(action => (
             <button
               key={action.key}
@@ -351,12 +610,21 @@ export default function Admin() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Category</label>
-              <select className="input-field" value={productForm.categoryId} onChange={e => setProductForm({ ...productForm, categoryId: e.target.value })}>
-                <option value="">Select category</option>
+              <input
+                className="input-field"
+                list="admin-category-options"
+                value={productForm.categoryName}
+                onChange={e => handleCategoryChange(e.target.value)}
+                placeholder="Type or select category"
+              />
+              <datalist id="admin-category-options">
                 {categoryOptions.map(category => (
-                  <option key={category.id} value={category.id}>{category.name}</option>
+                  <option key={category.id} value={category.name} />
                 ))}
-              </select>
+              </datalist>
+              {newCategoryPending && (
+                <p className="mt-1.5 text-xs text-primary-600">New category will be added to the dropdown list.</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Brand</label>
@@ -380,14 +648,97 @@ export default function Admin() {
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-1.5">Image URLs</label>
-              <input className="input-field" value={productForm.imageUrl} onChange={e => setProductForm({ ...productForm, imageUrl: e.target.value })} placeholder="https://example.com/image.jpg, https://example.com/alt.jpg" />
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <input
+                  className="input-field"
+                  value={productForm.imageUrl}
+                  onChange={e => setProductForm({ ...productForm, imageUrl: e.target.value })}
+                  placeholder="https://example.com/image.jpg, https://example.com/alt.jpg"
+                />
+                <button type="button" onClick={addImageUrls} className="btn-secondary shrink-0 gap-2">
+                  <HiOutlinePlus size={17} />
+                  Add URL
+                </button>
+              </div>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1.5">Upload Images</label>
+              <label className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed px-4 py-5 text-center transition-colors dark:border-gray-700 ${
+                uploadingImages
+                  ? 'border-primary-300 bg-primary-50 text-primary-700 dark:bg-primary-950/30 dark:text-primary-300'
+                  : 'border-gray-300 bg-gray-50 hover:border-primary-300 hover:bg-primary-50/60 dark:bg-gray-800 dark:hover:border-primary-700 dark:hover:bg-primary-950/20'
+              }`}>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  disabled={uploadingImages}
+                  onChange={handleImageUpload}
+                  className="sr-only"
+                />
+                <HiOutlineUpload size={24} className="mb-2 text-primary-600" />
+                <span className="text-sm font-medium">{uploadingImages ? 'Uploading images...' : 'Choose image files'}</span>
+                <span className="mt-1 text-xs text-gray-500">JPG, PNG, WebP or GIF. Multiple files supported.</span>
+              </label>
+            </div>
+            <div className="md:col-span-2">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="block text-sm font-medium">Image Preview Order</label>
+                <span className="text-xs text-gray-500">{productImages.length} image{productImages.length === 1 ? '' : 's'}</span>
+              </div>
+              {productImages.length > 0 ? (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {productImages.map((image, index) => (
+                    <div
+                      key={image.id}
+                      draggable
+                      onDragStart={() => setDraggedImageIndex(index)}
+                      onDragEnd={() => setDraggedImageIndex(null)}
+                      onDragOver={e => e.preventDefault()}
+                      onDrop={() => {
+                        moveImage(draggedImageIndex, index);
+                        setDraggedImageIndex(null);
+                      }}
+                      className={`rounded-xl border bg-white p-2 transition-all dark:bg-gray-900 ${
+                        draggedImageIndex === index
+                          ? 'border-primary-300 opacity-70 ring-2 ring-primary-100 dark:ring-primary-900/40'
+                          : 'border-gray-200 hover:border-primary-200 dark:border-gray-700'
+                      }`}
+                    >
+                      <div className="relative aspect-square overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
+                        <img src={image.url} alt={`Product image ${index + 1}`} className="h-full w-full object-cover" />
+                        <span className="absolute left-2 top-2 rounded-full bg-black/70 px-2 py-1 text-[11px] font-semibold text-white">
+                          #{index + 1}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeImage(image.id)}
+                          className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-gray-600 shadow-sm transition-colors hover:bg-red-50 hover:text-red-600 dark:bg-gray-900/90"
+                          aria-label={`Remove image ${index + 1}`}
+                        >
+                          <HiOutlineTrash size={16} />
+                        </button>
+                      </div>
+                      <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
+                        <HiOutlineMenuAlt4 size={16} className="shrink-0 cursor-grab text-gray-400" />
+                        <span className="truncate">{image.source === 'upload' ? image.name : image.url}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-6 text-center text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-800">
+                  <HiOutlinePhotograph size={24} className="mx-auto mb-2 text-gray-400" />
+                  Add image URLs or upload files to preview and drag images into the final order.
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Status</label>
               <select className="input-field" value={productForm.status} onChange={e => setProductForm({ ...productForm, status: e.target.value })}>
                 <option value="active">Active</option>
                 <option value="draft">Draft</option>
-                <option value="inactive">Inactive</option>
+                <option value="out_of_stock">Out of Stock</option>
               </select>
             </div>
             <label className="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 text-sm dark:border-gray-700">
@@ -395,13 +746,224 @@ export default function Admin() {
               Mark as featured product
             </label>
             <div className="md:col-span-2 flex justify-end gap-3">
-              <button type="button" className="btn-secondary" onClick={() => setProductForm(initialProductForm)}>Clear</button>
+              <button type="button" className="btn-secondary" onClick={clearProductForm}>Clear</button>
               <button type="submit" disabled={productSubmitting} className="btn-primary gap-2">
                 <HiOutlineCheckCircle size={18} />
                 {productSubmitting ? 'Creating...' : 'Create Product'}
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {activePanel === 'manageProducts' && (
+        <div ref={manageProductsRef} className="card p-6 mb-8 scroll-mt-24">
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="font-semibold text-lg flex items-center gap-2">
+                <HiOutlineCube size={20} className="text-emerald-600" />
+                Manage Product
+              </h3>
+              <p className="text-sm text-gray-500">Review catalog items and update or delete products.</p>
+            </div>
+            <button type="button" onClick={loadProducts} className="btn-secondary gap-2 !py-2">
+              <HiOutlineRefresh size={16} />
+              Reload
+            </button>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[920px] text-left text-sm">
+              <thead className="border-b border-gray-100 text-xs uppercase tracking-wide text-gray-400 dark:border-gray-800">
+                <tr>
+                  <th className="py-3 pr-4">Product</th>
+                  <th className="py-3 pr-4">Category</th>
+                  <th className="py-3 pr-4">Price</th>
+                  <th className="py-3 pr-4">Stock</th>
+                  <th className="py-3 pr-4">Status</th>
+                  <th className="py-3 pr-4">Featured</th>
+                  <th className="py-3 pr-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {productsLoading && (
+                  <tr><td colSpan="7" className="py-6 text-center text-gray-500">Loading products...</td></tr>
+                )}
+                {!productsLoading && products.map(product => {
+                  const productImage = Array.isArray(product.images) ? product.images[0] : '';
+                  const isEditing = editingProductId === product.id && productEditForm;
+
+                  return [
+                      <tr key={product.id}>
+                        <td className="py-3 pr-4">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
+                              {productImage ? (
+                                <img src={productImage} alt={product.name} className="h-full w-full object-cover" />
+                              ) : (
+                                <HiOutlinePhotograph size={20} className="text-gray-400" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate font-medium text-gray-900 dark:text-white">{product.name}</p>
+                              <p className="truncate text-xs text-gray-500">{product.sku || product.slug}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3 pr-4 text-gray-500">{product.category_name || 'Unassigned'}</td>
+                        <td className="py-3 pr-4">
+                          <p className="font-semibold">{formatPrice(product.price)}</p>
+                          {product.compare_price && (
+                            <p className="text-xs text-gray-400 line-through">{formatPrice(product.compare_price)}</p>
+                          )}
+                        </td>
+                        <td className="py-3 pr-4 font-medium">{product.stock_quantity}</td>
+                        <td className="py-3 pr-4">
+                          <span className={`badge text-xs ${
+                            product.status === 'active'
+                              ? 'badge-success'
+                              : product.status === 'draft'
+                                ? 'badge-warning'
+                                : 'badge-danger'
+                          }`}>
+                            {product.status}
+                          </span>
+                        </td>
+                        <td className="py-3 pr-4">
+                          <span className={`badge text-xs ${product.is_featured ? 'badge-primary' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'}`}>
+                            {product.is_featured ? 'Yes' : 'No'}
+                          </span>
+                        </td>
+                        <td className="py-3 pr-4">
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => startProductEdit(product)}
+                              className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:border-primary-200 hover:bg-primary-50 hover:text-primary-600 dark:border-gray-700 dark:text-gray-300 dark:hover:border-primary-800 dark:hover:bg-primary-950/30"
+                              aria-label={`Edit ${product.name}`}
+                            >
+                              <HiOutlinePencil size={17} />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={deletingProductId === product.id}
+                              onClick={() => handleProductDelete(product)}
+                              className="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:text-gray-300 dark:hover:border-red-900 dark:hover:bg-red-950/30"
+                              aria-label={`Delete ${product.name}`}
+                            >
+                              <HiOutlineTrash size={17} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>,
+                      isEditing && (
+                        <tr key={`${product.id}-edit`} className="bg-gray-50/80 dark:bg-gray-800/50">
+                          <td colSpan="7" className="py-4">
+                            <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+                              <div className="md:col-span-2 xl:col-span-2">
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Name</label>
+                                <input
+                                  className="input-field"
+                                  value={productEditForm.name}
+                                  onChange={e => setProductEditForm(prev => ({ ...prev, name: e.target.value }))}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Price</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  className="input-field"
+                                  value={productEditForm.price}
+                                  onChange={e => setProductEditForm(prev => ({ ...prev, price: e.target.value }))}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Compare</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  className="input-field"
+                                  value={productEditForm.comparePrice}
+                                  onChange={e => setProductEditForm(prev => ({ ...prev, comparePrice: e.target.value }))}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Stock</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  className="input-field"
+                                  value={productEditForm.stockQuantity}
+                                  onChange={e => setProductEditForm(prev => ({ ...prev, stockQuantity: e.target.value }))}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">SKU</label>
+                                <input
+                                  className="input-field"
+                                  value={productEditForm.sku}
+                                  onChange={e => setProductEditForm(prev => ({ ...prev, sku: e.target.value }))}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Category</label>
+                                <select
+                                  className="input-field"
+                                  value={productEditForm.categoryId}
+                                  onChange={e => setProductEditForm(prev => ({ ...prev, categoryId: e.target.value }))}
+                                >
+                                  <option value="">Unassigned</option>
+                                  {categoryOptions.map(category => (
+                                    <option key={category.id} value={category.id}>{category.name}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
+                                <select
+                                  className="input-field"
+                                  value={productEditForm.status}
+                                  onChange={e => setProductEditForm(prev => ({ ...prev, status: e.target.value }))}
+                                >
+                                  <option value="active">Active</option>
+                                  <option value="draft">Draft</option>
+                                  <option value="out_of_stock">Out of Stock</option>
+                                </select>
+                              </div>
+                              <label className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm dark:border-gray-700 dark:bg-gray-900">
+                                <input
+                                  type="checkbox"
+                                  checked={productEditForm.isFeatured}
+                                  onChange={e => setProductEditForm(prev => ({ ...prev, isFeatured: e.target.checked }))}
+                                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                                />
+                                Featured
+                              </label>
+                              <div className="flex items-end justify-end gap-2 md:col-span-3 xl:col-span-6">
+                                <button type="button" onClick={cancelProductEdit} className="btn-secondary gap-2 !py-2">
+                                  <HiOutlineX size={16} />
+                                  Cancel
+                                </button>
+                                <button type="button" onClick={() => handleProductUpdate(product.id)} className="btn-primary gap-2 !py-2">
+                                  <HiOutlineSave size={16} />
+                                  Save
+                                </button>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                  ];
+                })}
+                {!productsLoading && products.length === 0 && (
+                  <tr><td colSpan="7" className="py-6 text-center text-gray-500">No products found</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

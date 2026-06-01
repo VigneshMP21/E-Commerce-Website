@@ -1,6 +1,12 @@
 const pool = require('../config/db');
 const { AppError } = require('../utils/errors');
 
+const makeSlug = (value) => value
+  .toLowerCase()
+  .trim()
+  .replace(/[^a-z0-9]+/g, '-')
+  .replace(/(^-|-$)/g, '');
+
 const parseJsonArray = (value) => {
   if (!value) return [];
   if (Array.isArray(value)) return value;
@@ -205,6 +211,101 @@ const createProduct = async (req, res, next) => {
   }
 };
 
+const createCategory = async (req, res, next) => {
+  try {
+    const { name, description, image, parentId } = req.body;
+    const trimmedName = typeof name === 'string' ? name.trim() : '';
+    const parentCategoryId = parentId ? Number(parentId) : null;
+
+    if (!trimmedName) {
+      throw new AppError('Category name is required', 400);
+    }
+
+    if (parentId && Number.isNaN(parentCategoryId)) {
+      throw new AppError('Valid parent category is required', 400);
+    }
+
+    const slugBase = makeSlug(trimmedName);
+    if (!slugBase) {
+      throw new AppError('Category name must contain letters or numbers', 400);
+    }
+
+    const [existingByName] = await pool.execute(
+      'SELECT * FROM categories WHERE LOWER(name) = LOWER(?) AND parent_id <=> ? LIMIT 1',
+      [trimmedName, parentCategoryId]
+    );
+
+    if (existingByName.length) {
+      return res.json({
+        success: true,
+        message: 'Category already exists',
+        data: existingByName[0]
+      });
+    }
+
+    let slug = slugBase;
+    let suffix = 2;
+    while (true) {
+      const [existingSlug] = await pool.execute(
+        'SELECT id FROM categories WHERE slug = ? LIMIT 1',
+        [slug]
+      );
+      if (!existingSlug.length) break;
+      slug = `${slugBase}-${suffix}`;
+      suffix += 1;
+    }
+
+    const [result] = await pool.execute(
+      `INSERT INTO categories (name, slug, description, image, parent_id, is_active)
+       VALUES (?, ?, ?, ?, ?, true)`,
+      [trimmedName, slug, description || null, image || null, parentCategoryId]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Category created successfully',
+      data: {
+        id: result.insertId,
+        name: trimmedName,
+        slug,
+        description: description || null,
+        image: image || null,
+        parent_id: parentCategoryId,
+        is_active: true
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const uploadProductImages = async (req, res, next) => {
+  try {
+    const files = req.files || [];
+
+    if (!files.length) {
+      throw new AppError('At least one image file is required', 400);
+    }
+
+    const hostUrl = `${req.protocol}://${req.get('host')}`;
+    const images = files.map(file => ({
+      url: `${hostUrl}/uploads/${file.filename}`,
+      filename: file.filename,
+      originalName: file.originalname,
+      size: file.size,
+      mimetype: file.mimetype
+    }));
+
+    res.status(201).json({
+      success: true,
+      message: 'Images uploaded successfully',
+      data: images
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const updateProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -305,5 +406,5 @@ const getFeaturedProducts = async (req, res, next) => {
 
 module.exports = {
   getProducts, getProductBySlug, createProduct, updateProduct, deleteProduct,
-  getCategories, getFeaturedProducts
+  getCategories, getFeaturedProducts, createCategory, uploadProductImages
 };
