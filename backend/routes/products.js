@@ -20,7 +20,7 @@ router.put('/categories/:id', authenticate, authorize('admin'), [
 ], validate, productController.updateCategory);
 router.delete('/categories/:id', authenticate, authorize('admin'), productController.deleteCategory);
 
-router.post('/images', authenticate, authorize('admin'), upload.array('images', 12), productController.uploadProductImages);
+router.post('/images', authenticate, authorize('admin'), upload.single('image'), productController.uploadProductImages);
 
 router.post('/', authenticate, authorize('admin'), [
   body('name').trim().notEmpty().withMessage('Product name is required'),

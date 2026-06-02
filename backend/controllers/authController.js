@@ -5,6 +5,19 @@ const { generateToken, generateRefreshToken, verifyRefreshToken } = require('../
 const { AppError } = require('../utils/errors');
 const { sendWelcomeEmail, sendResetPasswordEmail } = require('../utils/email');
 
+let userPhoneColumnReady = false;
+
+const ensureUserPhoneColumn = async () => {
+  if (userPhoneColumnReady) return;
+
+  const [columns] = await pool.execute("SHOW COLUMNS FROM users LIKE 'phone'");
+  if (!columns.length) {
+    await pool.execute('ALTER TABLE users ADD COLUMN phone VARCHAR(20) NULL AFTER avatar');
+  }
+
+  userPhoneColumnReady = true;
+};
+
 const register = async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
@@ -103,8 +116,10 @@ const refreshTokenHandler = async (req, res, next) => {
 
 const getProfile = async (req, res, next) => {
   try {
+    await ensureUserPhoneColumn();
+
     const [users] = await pool.execute(
-      'SELECT id, name, email, role, avatar, is_verified, created_at FROM users WHERE id = ?',
+      'SELECT id, name, email, role, avatar, phone, is_verified, created_at FROM users WHERE id = ?',
       [req.user.id]
     );
 
@@ -120,14 +135,85 @@ const getProfile = async (req, res, next) => {
 
 const updateProfile = async (req, res, next) => {
   try {
-    const { name, avatar } = req.body;
+    const { name, email, phone, avatar } = req.body;
+    await ensureUserPhoneColumn();
 
-    await pool.execute(
-      'UPDATE users SET name = COALESCE(?, name), avatar = COALESCE(?, avatar) WHERE id = ?',
-      [name, avatar, req.user.id]
+    const [users] = await pool.execute(
+      'SELECT id, name, email, role, avatar, phone, is_verified, created_at FROM users WHERE id = ?',
+      [req.user.id]
     );
 
-    res.json({ success: true, message: 'Profile updated successfully' });
+    if (!users.length) {
+      throw new AppError('User not found', 404);
+    }
+
+    const currentUser = users[0];
+    const nextName = typeof name === 'string' && name.trim() ? name.trim() : currentUser.name;
+    const nextEmail = typeof email === 'string' && email.trim() ? email.trim().toLowerCase() : currentUser.email;
+    const nextPhone = typeof phone === 'string' ? (phone.trim() || null) : currentUser.phone;
+    const nextAvatar = typeof avatar === 'string' ? (avatar.trim() || null) : currentUser.avatar;
+
+    if (nextEmail !== currentUser.email) {
+      const [existingEmail] = await pool.execute(
+        'SELECT id FROM users WHERE email = ? AND id != ?',
+        [nextEmail, req.user.id]
+      );
+
+      if (existingEmail.length) {
+        throw new AppError('Email already registered', 409);
+      }
+    }
+
+    await pool.execute(
+      'UPDATE users SET name = ?, email = ?, phone = ?, avatar = ? WHERE id = ?',
+      [nextName, nextEmail, nextPhone, nextAvatar, req.user.id]
+    );
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: {
+        ...currentUser,
+        name: nextName,
+        email: nextEmail,
+        phone: nextPhone,
+        avatar: nextAvatar
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    const [users] = await pool.execute(
+      'SELECT id, password FROM users WHERE id = ?',
+      [req.user.id]
+    );
+
+    if (!users.length) {
+      throw new AppError('User not found', 404);
+    }
+
+    if (!users[0].password) {
+      throw new AppError('Password change is not available for Google login accounts', 400);
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, users[0].password);
+    if (!isMatch) {
+      throw new AppError('Current password is incorrect', 400);
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    await pool.execute(
+      'UPDATE users SET password = ? WHERE id = ?',
+      [hashedPassword, req.user.id]
+    );
+
+    res.json({ success: true, message: 'Password changed successfully' });
   } catch (error) {
     next(error);
   }
@@ -218,6 +304,6 @@ const googleAuth = async (req, res, next) => {
 
 module.exports = {
   register, login, refreshTokenHandler,
-  getProfile, updateProfile,
+  getProfile, updateProfile, changePassword,
   forgotPassword, resetPassword, googleAuth
 };

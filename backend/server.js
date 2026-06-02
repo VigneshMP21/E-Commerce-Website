@@ -3,7 +3,6 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const path = require('path');
 const config = require('./config');
 const { errorHandler } = require('./utils/errors');
 
@@ -37,9 +36,6 @@ app.use('/api/orders/webhook/stripe', express.raw({ type: 'application/json' }))
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Static files
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
@@ -59,11 +55,5 @@ app.use((req, res) => {
 
 // Error handler
 app.use(errorHandler);
-
-const PORT = config.port;
-app.listen(PORT, () => {
-  console.log(`ECW Backend running on port ${PORT} in ${config.nodeEnv} mode`);
-  console.log(`API: http://localhost:${PORT}/api`);
-});
 
 module.exports = app;

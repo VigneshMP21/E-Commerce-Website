@@ -27,6 +27,15 @@ router.post('/reset-password/:token', [
 ], validate, authController.resetPassword);
 
 router.get('/profile', authenticate, authController.getProfile);
-router.put('/profile', authenticate, authController.updateProfile);
+router.put('/profile', authenticate, [
+  body('name').optional().trim().notEmpty().withMessage('Name cannot be empty'),
+  body('email').optional().isEmail().withMessage('Valid email is required'),
+  body('phone').optional({ nullable: true }).trim().isLength({ max: 20 }).withMessage('Phone is too long'),
+  body('avatar').optional({ nullable: true }).trim().isLength({ max: 500 }).withMessage('Avatar URL is too long')
+], validate, authController.updateProfile);
+router.post('/change-password', authenticate, [
+  body('currentPassword').notEmpty().withMessage('Current password is required'),
+  body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters')
+], validate, authController.changePassword);
 
 module.exports = router;

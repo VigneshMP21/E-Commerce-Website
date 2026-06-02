@@ -1,5 +1,8 @@
 const pool = require('../config/db');
+const supabase = require('../config/supabase');
 const { AppError } = require('../utils/errors');
+
+const SUPABASE_BUCKET = process.env.SUPABASE_BUCKET || 'product-images';
 
 const makeSlug = (value) => value
   .toLowerCase()
@@ -16,6 +19,55 @@ const parseJsonArray = (value) => {
   } catch {
     return [];
   }
+};
+
+const sanitizeFileName = (fileName = 'image') => (
+  String(fileName)
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '') || 'image'
+);
+
+const createStorageFileName = (originalName) => {
+  const timestamp = Date.now();
+  const random = Math.round(Math.random() * 1E9);
+  return `${timestamp}-${random}-${sanitizeFileName(originalName)}`;
+};
+
+const uploadImageToSupabase = async (file) => {
+  if (!file?.buffer) {
+    throw new AppError('Image file buffer is required', 400);
+  }
+
+  const fileName = createStorageFileName(file.originalname);
+  const { error: uploadError } = await supabase.storage
+    .from(SUPABASE_BUCKET)
+    .upload(fileName, file.buffer, {
+      contentType: file.mimetype,
+      cacheControl: '3600',
+      upsert: false
+    });
+
+  if (uploadError) {
+    throw new AppError(`Supabase upload failed: ${uploadError.message}`, 500);
+  }
+
+  const { data } = supabase.storage
+    .from(SUPABASE_BUCKET)
+    .getPublicUrl(fileName);
+
+  if (!data?.publicUrl) {
+    throw new AppError('Unable to get uploaded image public URL', 500);
+  }
+
+  return {
+    url: data.publicUrl,
+    filename: fileName,
+    originalName: file.originalname,
+    size: file.size,
+    mimetype: file.mimetype
+  };
 };
 
 const visibleReviewWhere = '(is_approved = true OR is_verified_purchase = true)';
@@ -493,25 +545,15 @@ const deleteCategory = async (req, res, next) => {
 
 const uploadProductImages = async (req, res, next) => {
   try {
-    const files = req.files || [];
-
-    if (!files.length) {
-      throw new AppError('At least one image file is required', 400);
+    if (!req.file) {
+      throw new AppError('Image file is required', 400);
     }
 
-    const hostUrl = `${req.protocol}://${req.get('host')}`;
-    const images = files.map(file => ({
-      url: `${hostUrl}/uploads/${file.filename}`,
-      filename: file.filename,
-      originalName: file.originalname,
-      size: file.size,
-      mimetype: file.mimetype
-    }));
+    const image = await uploadImageToSupabase(req.file);
 
     res.status(201).json({
       success: true,
-      message: 'Images uploaded successfully',
-      data: images
+      imageUrl: image.url
     });
   } catch (error) {
     next(error);
