@@ -42,6 +42,12 @@ import { useCart } from '../context/CartContext';
 
 const glassCardClass = 'rounded-[28px] border border-white/70 bg-white/80 shadow-[0_24px_80px_rgba(79,70,229,0.12)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_28px_90px_rgba(79,70,229,0.18)] dark:border-white/10 dark:bg-gray-950/75';
 const compactGlassClass = 'rounded-2xl border border-white/70 bg-white/70 shadow-[0_18px_48px_rgba(79,70,229,0.10)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_22px_60px_rgba(79,70,229,0.14)] dark:border-white/10 dark:bg-gray-900/70';
+const REVIEW_IMAGE_MAX_SIZE_MB = 1;
+const REVIEW_IMAGE_TOTAL_MAX_SIZE_MB = 3;
+const REVIEW_IMAGE_MAX_BYTES = REVIEW_IMAGE_MAX_SIZE_MB * 1024 * 1024;
+const REVIEW_IMAGE_TOTAL_MAX_BYTES = REVIEW_IMAGE_TOTAL_MAX_SIZE_MB * 1024 * 1024;
+const REVIEW_IMAGE_SIZE_MESSAGE = `Image is not supported because image size must be ${REVIEW_IMAGE_MAX_SIZE_MB} MB or smaller.`;
+const REVIEW_IMAGE_TOTAL_SIZE_MESSAGE = `Image is not supported because total review image size must be ${REVIEW_IMAGE_TOTAL_MAX_SIZE_MB} MB or smaller.`;
 
 const statusSteps = [
   { key: 'pending', label: 'Order Placed', icon: HiOutlineShoppingBag, description: 'Your order has been received by VShop.' },
@@ -1048,7 +1054,10 @@ function ReviewModal({
                 accept="image/*"
                 multiple
                 className="hidden"
-                onChange={(event) => onImagesChange(event.target.files)}
+                onChange={(event) => {
+                  onImagesChange(event.target.files);
+                  event.target.value = '';
+                }}
               />
             </label>
 
@@ -1067,7 +1076,7 @@ function ReviewModal({
               </div>
             ))}
           </div>
-          <p className="mt-2 text-xs text-gray-400">Image files are selected for review context.</p>
+          <p className="mt-2 text-xs text-gray-400">Upload up to 5 images. Each image must be {REVIEW_IMAGE_MAX_SIZE_MB} MB or smaller.</p>
         </div>
 
         <button
@@ -1265,8 +1274,40 @@ export default function OrderDetail() {
   };
 
   const handleReviewImagesChange = (files) => {
-    const selectedFiles = Array.from(files || []).filter(file => file.type?.startsWith('image/'));
-    setReviewImages(current => [...current, ...selectedFiles].slice(0, 5));
+    const selectedFiles = Array.from(files || []);
+    const imageFiles = selectedFiles.filter(file => file.type?.startsWith('image/'));
+
+    if (imageFiles.length !== selectedFiles.length) {
+      toast.error('Only image files are supported for review uploads.');
+    }
+
+    const oversizedFile = imageFiles.find(file => file.size > REVIEW_IMAGE_MAX_BYTES);
+    if (oversizedFile) {
+      toast.error(REVIEW_IMAGE_SIZE_MESSAGE);
+    }
+
+    const validFiles = imageFiles.filter(file => file.size <= REVIEW_IMAGE_MAX_BYTES);
+    let remainingBytes = REVIEW_IMAGE_TOTAL_MAX_BYTES - reviewImages.reduce((total, file) => total + file.size, 0);
+    let totalLimitReached = false;
+    const acceptedFiles = [];
+
+    validFiles.forEach(file => {
+      if (reviewImages.length + acceptedFiles.length >= 5) return;
+
+      if (file.size > remainingBytes) {
+        totalLimitReached = true;
+        return;
+      }
+
+      acceptedFiles.push(file);
+      remainingBytes -= file.size;
+    });
+
+    if (totalLimitReached) {
+      toast.error(REVIEW_IMAGE_TOTAL_SIZE_MESSAGE);
+    }
+
+    setReviewImages(current => [...current, ...acceptedFiles].slice(0, 5));
   };
 
   const handleRemoveReviewImage = (index) => {

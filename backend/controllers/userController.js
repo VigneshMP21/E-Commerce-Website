@@ -1,6 +1,24 @@
 const pool = require('../config/db');
 const { AppError } = require('../utils/errors');
 
+const REVIEW_IMAGE_MAX_SIZE_MB = 1;
+const REVIEW_IMAGE_TOTAL_MAX_SIZE_MB = 3;
+const REVIEW_IMAGE_MAX_BYTES = REVIEW_IMAGE_MAX_SIZE_MB * 1024 * 1024;
+const REVIEW_IMAGE_TOTAL_MAX_BYTES = REVIEW_IMAGE_TOTAL_MAX_SIZE_MB * 1024 * 1024;
+const REVIEW_IMAGE_SIZE_MESSAGE = `Image is not supported because image size must be ${REVIEW_IMAGE_MAX_SIZE_MB} MB or smaller.`;
+const REVIEW_IMAGE_TOTAL_SIZE_MESSAGE = `Image is not supported because total review image size must be ${REVIEW_IMAGE_TOTAL_MAX_SIZE_MB} MB or smaller.`;
+
+const getReviewImageByteSize = (image) => {
+  const value = String(image || '');
+  const base64 = value.startsWith('data:image/') ? value.split(',')[1] : '';
+
+  if (base64) {
+    return Buffer.byteLength(base64, 'base64');
+  }
+
+  return Buffer.byteLength(value, 'utf8');
+};
+
 const getWishlist = async (req, res, next) => {
   try {
     const [items] = await pool.execute(
@@ -51,6 +69,16 @@ const addReview = async (req, res, next) => {
     const reviewImages = Array.isArray(images)
       ? images.filter(image => typeof image === 'string' && image.trim()).slice(0, 5)
       : [];
+    const reviewImageBytes = reviewImages.map(getReviewImageByteSize);
+
+    if (reviewImageBytes.some(size => size > REVIEW_IMAGE_MAX_BYTES)) {
+      throw new AppError(REVIEW_IMAGE_SIZE_MESSAGE, 400);
+    }
+
+    if (reviewImageBytes.reduce((total, size) => total + size, 0) > REVIEW_IMAGE_TOTAL_MAX_BYTES) {
+      throw new AppError(REVIEW_IMAGE_TOTAL_SIZE_MESSAGE, 400);
+    }
+
     const [imageColumns] = await pool.execute("SHOW COLUMNS FROM reviews LIKE 'images'");
     let supportsReviewImages = imageColumns.length > 0;
 
