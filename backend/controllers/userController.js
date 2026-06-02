@@ -52,7 +52,16 @@ const addReview = async (req, res, next) => {
       ? images.filter(image => typeof image === 'string' && image.trim()).slice(0, 5)
       : [];
     const [imageColumns] = await pool.execute("SHOW COLUMNS FROM reviews LIKE 'images'");
-    const supportsReviewImages = imageColumns.length > 0;
+    let supportsReviewImages = imageColumns.length > 0;
+
+    if (!supportsReviewImages && reviewImages.length) {
+      try {
+        await pool.execute('ALTER TABLE reviews ADD COLUMN images JSON NULL AFTER comment');
+        supportsReviewImages = true;
+      } catch {
+        supportsReviewImages = false;
+      }
+    }
 
     const [orders] = await pool.execute(
       `SELECT oi.id FROM order_items oi

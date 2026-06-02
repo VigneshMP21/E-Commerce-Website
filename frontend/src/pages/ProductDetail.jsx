@@ -35,6 +35,8 @@ const parseReviewImages = (review) => {
     const parsed = JSON.parse(rawImages);
     return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
   } catch {
+    if (String(rawImages).startsWith('data:image/')) return [String(rawImages)];
+
     return String(rawImages)
       .split(',')
       .map(image => image.trim())

@@ -240,6 +240,9 @@ const getProductBySlug = async (req, res, next) => {
        ORDER BY r.created_at DESC`,
       [product.id]
     );
+    reviews.forEach(review => {
+      review.images = parseJsonArray(review.images);
+    });
 
     const [related] = await pool.execute(
       `SELECT p.id, p.name, p.slug, p.price, p.compare_price, p.images, ${reviewRatingExpr} as computed_rating, ${reviewCountExpr} as computed_review_count

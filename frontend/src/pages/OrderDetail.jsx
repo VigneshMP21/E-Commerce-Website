@@ -72,6 +72,15 @@ const titleize = (value = '') => String(value || 'pending')
 
 const toNumber = (value) => Number(value) || 0;
 
+const readFilesAsDataUrls = (files) => Promise.all(
+  files.map(file => new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  }))
+).then(results => results.filter(Boolean));
+
 const addDays = (date, days) => {
   const nextDate = new Date(date || Date.now());
   nextDate.setDate(nextDate.getDate() + days);
@@ -1273,12 +1282,13 @@ export default function OrderDetail() {
 
     setReviewSubmitting(true);
     try {
+      const reviewImageDataUrls = await readFilesAsDataUrls(reviewImages);
       await api.post('/users/reviews', {
         productId: item.product_id,
         rating: reviewRating,
         title: 'Customer feedback',
         comment: comment || null,
-        images: reviewImages.map(file => file.name)
+        images: reviewImageDataUrls
       });
 
       updateItemRating(item.id, reviewRating, comment);
