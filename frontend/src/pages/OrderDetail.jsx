@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import QRCode from 'qrcode';
 import {
   HiOutlineArrowLeft,
   HiOutlineArrowRight,
@@ -154,30 +155,252 @@ const getTimelineDate = (order, index) => {
   return addDays(order.created_at, index + 1);
 };
 
-const buildInvoiceText = (order) => {
-  const lines = [
-    'VShop Invoice',
-    `Order ID: ${order.order_number}`,
-    `Order Date: ${formatDate(order.created_at)}`,
-    `Status: ${titleize(order.status)}`,
-    '',
-    'Items:'
-  ];
+const sanitizePdfText = (value) => String(value ?? '')
+  .replace(/[₹]/g, 'Rs.')
+  .replace(/[^\x20-\x7E]/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim();
 
-  (order.items || []).forEach(item => {
-    lines.push(`${item.product_name} | Qty ${item.quantity} | ${formatPrice(toNumber(item.total_price))}`);
+const escapePdfText = (value) => sanitizePdfText(value)
+  .replace(/\\/g, '\\\\')
+  .replace(/\(/g, '\\(')
+  .replace(/\)/g, '\\)');
+
+const formatInvoiceDate = (date) => {
+  const value = new Date(date || Date.now());
+  const day = String(value.getDate()).padStart(2, '0');
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  return `${day}-${month}-${value.getFullYear()}`;
+};
+
+const formatInvoiceMoney = (value) => toNumber(value).toFixed(2);
+
+const getInvoiceAddressLines = (address, user) => {
+  if (!address) {
+    return [
+      user?.name || 'VShop Customer',
+      user?.email || 'Registered customer',
+      'Saved delivery address not available'
+    ];
+  }
+
+  return [
+    address.full_name || user?.name || 'VShop Customer',
+    [address.street, address.city].filter(Boolean).join(', '),
+    [address.state, address.zip_code, address.country].filter(Boolean).join(', '),
+    `Phone: ${address.phone || 'xxxxxxxxxx'}`
+  ].filter(Boolean);
+};
+
+const wrapPdfText = (text, maxChars) => {
+  const words = sanitizePdfText(text).split(' ').filter(Boolean);
+  const lines = [];
+  let current = '';
+
+  words.forEach(word => {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length > maxChars && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = next;
+    }
   });
 
-  lines.push(
-    '',
-    `Subtotal: ${formatPrice(toNumber(order.subtotal))}`,
-    `Discount: -${formatPrice(toNumber(order.discount_amount))}`,
-    `Shipping: ${formatPrice(toNumber(order.shipping_cost))}`,
-    `Tax: ${formatPrice(toNumber(order.tax_amount))}`,
-    `Grand Total: ${formatPrice(toNumber(order.total_amount))}`
-  );
+  if (current) lines.push(current);
+  return lines.length ? lines : [''];
+};
 
-  return lines.join('\n');
+const buildInvoicePdfBlob = (order, { address, user } = {}) => {
+  const pageWidth = 842;
+  const pageHeight = 595;
+  const commands = [];
+  const yPoint = (topY) => pageHeight - topY;
+  const invoiceNumber = `INV-${String(order.order_number || order.id || Date.now()).replace(/[^A-Za-z0-9-]/g, '')}`;
+  const billLines = getInvoiceAddressLines(address, user);
+  const shipLines = getInvoiceAddressLines(address, user);
+  const items = order.items || [];
+  const subtotal = toNumber(order.subtotal);
+  const discount = toNumber(order.discount_amount);
+  const tax = toNumber(order.tax_amount);
+  const grandTotal = toNumber(order.total_amount);
+
+  const drawText = (text, x, y, size = 9, font = 'F1') => {
+    commands.push(`BT /${font} ${size} Tf ${x.toFixed(2)} ${yPoint(y).toFixed(2)} Td (${escapePdfText(text)}) Tj ET`);
+  };
+
+  const drawTextRight = (text, rightX, y, size = 9, font = 'F1') => {
+    const width = sanitizePdfText(text).length * size * 0.5;
+    drawText(text, rightX - width, y, size, font);
+  };
+
+  const drawLine = (x1, y1, x2, y2, width = 1) => {
+    commands.push(`q ${width} w ${x1.toFixed(2)} ${yPoint(y1).toFixed(2)} m ${x2.toFixed(2)} ${yPoint(y2).toFixed(2)} l S Q`);
+  };
+
+  const drawRect = (x, y, width, height, mode = 'S') => {
+    commands.push(`${x.toFixed(2)} ${yPoint(y + height).toFixed(2)} ${width.toFixed(2)} ${height.toFixed(2)} re ${mode}`);
+  };
+
+  const drawWrappedText = (text, x, y, maxChars, size = 9, font = 'F1', lineHeight = size + 3, maxLines = 4) => {
+    const lines = wrapPdfText(text, maxChars).slice(0, maxLines);
+    lines.forEach((line, index) => drawText(line, x, y + (index * lineHeight), size, font));
+    return y + (lines.length * lineHeight);
+  };
+
+  const drawAddressBlock = (title, lines, x, y, maxChars = 32) => {
+    let cursorY = y;
+    drawText(title, x, cursorY, 10, 'F2');
+    cursorY += 18;
+
+    lines.forEach((line, index) => {
+      const isName = index === 0;
+      const wrapped = wrapPdfText(line, isName ? maxChars : maxChars - 2).slice(0, isName ? 1 : 3);
+      wrapped.forEach(wrappedLine => {
+        drawText(wrappedLine, x, cursorY, isName ? 10 : 8.2, isName ? 'F2' : 'F1');
+        cursorY += isName ? 15 : 11;
+      });
+      if (isName) cursorY += 4;
+    });
+
+    return cursorY;
+  };
+
+  const drawQr = (x, y, cell = 2.4) => {
+    const orderPath = `/orders/${encodeURIComponent(order.order_number || '')}`;
+    const invoiceUrl = typeof window !== 'undefined' && window.location?.origin
+      ? `${window.location.origin}${orderPath}`
+      : `VSHOP-INVOICE:${invoiceNumber};ORDER:${order.order_number};TOTAL:${formatInvoiceMoney(grandTotal)}`;
+    const qr = QRCode.create(invoiceUrl, { errorCorrectionLevel: 'M' });
+    const modules = qr.modules.size;
+    const moduleData = qr.modules.data;
+    const size = modules * cell;
+
+    commands.push('1 1 1 rg');
+    drawRect(x - (cell * 4), y - (cell * 4), size + (cell * 8), size + (cell * 8), 'f');
+    commands.push('0 0 0 rg');
+    for (let row = 0; row < modules; row += 1) {
+      for (let col = 0; col < modules; col += 1) {
+        if (moduleData[row * modules + col]) {
+          drawRect(x + (col * cell), y + (row * cell), cell, cell, 'f');
+        }
+      }
+    }
+
+    drawRect(x - (cell * 4), y - (cell * 4), size + (cell * 8), size + (cell * 8), 'S');
+    drawText('Scan for invoice', x - 2, y + size + 15, 7, 'F1');
+  };
+
+  commands.push('0 0 0 RG 0 0 0 rg');
+  drawText('Tax Invoice', 386, 22, 16, 'F2');
+
+  drawText('Sold By: VShop Commerce Private Limited', 16, 46, 10, 'F2');
+  drawWrappedText(
+    'Ship-from Address: VShop fulfillment and logistics center, Koduvalli, Thiruvallur district, Chennai, Tamil Nadu, India - 600055.',
+    16,
+    62,
+    92,
+    7,
+    'F3',
+    9,
+    2
+  );
+  drawText('GSTIN - 33VSHOP1299K1ZI', 16, 96, 10, 'F2');
+  drawQr(614, 40, 2.4);
+  drawRect(592, 126, 242, 30, 'S');
+  drawWrappedText(`Invoice Number # ${invoiceNumber}`, 600, 144, 58, 8.5, 'F2', 10, 2);
+  drawLine(8, 166, 834, 166, 1.5);
+
+  drawText('Order ID:', 16, 188, 10, 'F2');
+  drawText(String(order.order_number || order.id), 16, 203, 10, 'F2');
+  drawText(`Order Date: ${formatInvoiceDate(order.created_at)}`, 16, 228, 10, 'F2');
+  drawText(`Invoice Date: ${formatInvoiceDate(new Date())}`, 16, 252, 10, 'F2');
+  drawText('PAN: VSHOP1299K', 16, 276, 10, 'F2');
+
+  drawAddressBlock('Bill To', billLines, 216, 188, 31);
+  drawAddressBlock('Ship To', shipLines, 422, 188, 31);
+
+  drawWrappedText('*Keep this invoice and manufacturer box for warranty purposes.', 640, 232, 42, 8, 'F3', 11, 3);
+
+  drawText(`Total Items: ${items.length}`, 8, 332, 10, 'F1');
+  drawLine(8, 338, 834, 338, 1.2);
+  drawText('Product', 14, 354, 10, 'F2');
+  drawText('Title', 170, 354, 10, 'F2');
+  drawText('Qty', 414, 354, 10, 'F2');
+  drawText('Gross', 470, 354, 10, 'F2');
+  drawText('Discounts', 548, 354, 10, 'F2');
+  drawText('Taxable', 636, 354, 10, 'F2');
+  drawText('IGST', 718, 354, 10, 'F2');
+  drawText('Total Rs.', 780, 354, 10, 'F2');
+  drawText('Amount Rs.', 462, 372, 10, 'F2');
+  drawText('/Coupons Rs.', 544, 372, 10, 'F2');
+  drawText('Value Rs.', 632, 372, 10, 'F2');
+  drawText('Rs.', 724, 372, 10, 'F2');
+  drawLine(8, 384, 834, 384, 1.2);
+
+  let rowY = 410;
+  let grossTotal = 0;
+  items.slice(0, 5).forEach((item) => {
+    const lineGross = toNumber(item.total_price);
+    const share = subtotal > 0 ? lineGross / subtotal : 1 / Math.max(items.length, 1);
+    const lineDiscount = discount * share;
+    const lineTax = tax * share;
+    const lineTaxable = Math.max(0, lineGross - lineDiscount);
+    const lineTotal = lineTaxable + lineTax;
+    grossTotal += lineGross;
+
+    drawWrappedText(item.brand || item.variant_info || 'VShop Product', 14, rowY, 24, 8, 'F1', 10, 2);
+    drawText(`FSN: ${String(item.product_id || item.id).padStart(10, '0')}`, 14, rowY + 24, 8, 'F1');
+    drawText('HSN/SAC: 95065910', 14, rowY + 36, 8, 'F1');
+    drawWrappedText(item.product_name, 170, rowY, 32, 12, 'F2', 15, 3);
+    drawText('IGST: 5.0 %', 170, rowY + 54, 8, 'F2');
+    drawTextRight(String(item.quantity || 1), 428, rowY, 10, 'F1');
+    drawTextRight(formatInvoiceMoney(lineGross), 516, rowY, 10, 'F1');
+    drawTextRight(formatInvoiceMoney(lineDiscount), 606, rowY, 10, 'F1');
+    drawTextRight(formatInvoiceMoney(lineTaxable), 696, rowY, 10, 'F1');
+    drawTextRight(formatInvoiceMoney(lineTax), 760, rowY, 10, 'F1');
+    drawTextRight(formatInvoiceMoney(lineTotal), 818, rowY, 10, 'F1');
+    rowY += 76;
+  });
+
+  drawLine(164, 496, 834, 496, 1.2);
+  drawText('Total', 270, 518, 11, 'F2');
+  drawTextRight(String(items.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0)), 428, 518, 11, 'F2');
+  drawTextRight(formatInvoiceMoney(grossTotal || subtotal), 516, 518, 11, 'F2');
+  drawTextRight(formatInvoiceMoney(discount), 606, 518, 11, 'F2');
+  drawTextRight(formatInvoiceMoney(Math.max(0, subtotal - discount)), 696, 518, 11, 'F2');
+  drawTextRight(formatInvoiceMoney(tax), 760, 518, 11, 'F2');
+  drawTextRight(formatInvoiceMoney(grandTotal), 818, 518, 11, 'F2');
+  drawLine(8, 540, 834, 540, 1.2);
+  drawText('Grand Total', 618, 574, 16, 'F1');
+  drawTextRight(`Rs. ${formatInvoiceMoney(grandTotal)}`, 834, 574, 16, 'F2');
+
+  const content = commands.join('\n');
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 4 0 R /F2 5 0 R /F3 6 0 R >> >> /Contents 7 0 R >>`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique >>',
+    `<< /Length ${content.length} >>\nstream\n${content}\nendstream`
+  ];
+  const offsets = [0];
+  let pdf = '%PDF-1.4\n';
+
+  objects.forEach((object, index) => {
+    offsets[index + 1] = pdf.length;
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+
+  const xrefOffset = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (let index = 1; index <= objects.length; index += 1) {
+    pdf += `${String(offsets[index]).padStart(10, '0')} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+  return new Blob([pdf], { type: 'application/pdf' });
 };
 
 function LoadingDetail() {
@@ -1124,11 +1347,11 @@ export default function OrderDetail() {
   };
 
   const handleDownloadInvoice = (selectedOrder) => {
-    const blob = new Blob([buildInvoiceText(selectedOrder)], { type: 'text/plain;charset=utf-8' });
+    const blob = buildInvoicePdfBlob(selectedOrder, { address, user });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `VShop-invoice-${selectedOrder.order_number}.txt`;
+    link.download = `VShop-invoice-${selectedOrder.order_number}.pdf`;
     document.body.appendChild(link);
     link.click();
     link.remove();
