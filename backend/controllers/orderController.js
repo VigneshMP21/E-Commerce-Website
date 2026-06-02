@@ -202,7 +202,7 @@ const getUserOrders = async (req, res, next) => {
     const orderIds = orders.map(order => order.id);
     const placeholders = orderIds.map(() => '?').join(', ');
     const [items] = await pool.execute(
-      `SELECT oi.*, p.slug as product_slug, r.rating as user_rating
+      `SELECT oi.*, p.slug as product_slug, r.rating as user_rating, r.comment as user_review_comment
        FROM order_items oi
        LEFT JOIN products p ON p.id = oi.product_id
        LEFT JOIN reviews r ON r.product_id = oi.product_id AND r.user_id = ?
@@ -238,8 +238,13 @@ const getOrderByNumber = async (req, res, next) => {
     if (!orders.length) throw new AppError('Order not found', 404);
 
     const [items] = await pool.execute(
-      'SELECT * FROM order_items WHERE order_id = ?',
-      [orders[0].id]
+      `SELECT oi.*, p.slug as product_slug, r.rating as user_rating, r.comment as user_review_comment
+       FROM order_items oi
+       LEFT JOIN products p ON p.id = oi.product_id
+       LEFT JOIN reviews r ON r.product_id = oi.product_id AND r.user_id = ?
+       WHERE oi.order_id = ?
+       ORDER BY oi.id ASC`,
+      [req.user.id, orders[0].id]
     );
 
     const [tracking] = await pool.execute(
