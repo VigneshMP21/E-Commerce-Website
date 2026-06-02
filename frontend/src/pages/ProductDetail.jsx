@@ -1,7 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { HiHeart, HiOutlineShoppingCart, HiOutlineHeart, HiOutlineStar, HiOutlineMinus, HiOutlinePlus, HiOutlineCheck, HiOutlineTruck, HiOutlineShieldCheck, HiOutlineRefresh } from 'react-icons/hi';
+import {
+  HiHeart,
+  HiOutlineChevronLeft,
+  HiOutlineChevronRight,
+  HiOutlineShoppingCart,
+  HiOutlineHeart,
+  HiOutlineStar,
+  HiOutlineMinus,
+  HiOutlinePlus,
+  HiOutlineCheck,
+  HiOutlineTruck,
+  HiOutlineShieldCheck,
+  HiOutlineRefresh,
+  HiOutlineX
+} from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { useCart } from '../context/CartContext';
@@ -10,6 +24,85 @@ import { useWishlist } from '../context/WishlistContext';
 import { formatPrice, calculateDiscount, formatDate, truncateText } from '../utils/helpers';
 import Breadcrumb from '../components/ui/Breadcrumb';
 import ProductCard from '../components/product/ProductCard';
+
+const parseReviewImages = (review) => {
+  const rawImages = review.images || review.image_urls || review.photos || review.review_images;
+  if (!rawImages) return [];
+
+  if (Array.isArray(rawImages)) return rawImages.filter(Boolean);
+
+  try {
+    const parsed = JSON.parse(rawImages);
+    return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+  } catch {
+    return String(rawImages)
+      .split(',')
+      .map(image => image.trim())
+      .filter(Boolean);
+  }
+};
+
+function ImageOverlay({ images, index, title, onClose, onPrev, onNext }) {
+  if (!images?.length) return null;
+
+  const currentImage = images[index] || images[0];
+  const multiple = images.length > 1;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 px-4 py-6 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      onMouseDown={onClose}
+    >
+      <div className="relative flex h-full w-full max-w-6xl items-center justify-center" onMouseDown={(event) => event.stopPropagation()}>
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-0 top-0 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20"
+          aria-label="Close image preview"
+        >
+          <HiOutlineX size={26} />
+        </button>
+
+        {multiple && (
+          <button
+            type="button"
+            onClick={onPrev}
+            className="absolute left-0 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20"
+            aria-label="Previous image"
+          >
+            <HiOutlineChevronLeft size={30} />
+          </button>
+        )}
+
+        <div className="flex max-h-full max-w-full flex-col items-center gap-4">
+          <img
+            src={currentImage}
+            alt={title || 'Preview'}
+            className="max-h-[78vh] max-w-full rounded-2xl object-contain shadow-2xl"
+          />
+          {multiple && (
+            <div className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur">
+              {index + 1} / {images.length}
+            </div>
+          )}
+        </div>
+
+        {multiple && (
+          <button
+            type="button"
+            onClick={onNext}
+            className="absolute right-0 z-10 flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-white backdrop-blur transition-colors hover:bg-white/20"
+            aria-label="Next image"
+          >
+            <HiOutlineChevronRight size={30} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function ProductDetail() {
   const { slug } = useParams();
@@ -21,12 +114,16 @@ export default function ProductDetail() {
   const [quantity, setQuantity] = useState(1);
   const [zoom, setZoom] = useState(false);
   const [zoomPos, setZoomPos] = useState({ x: 0, y: 0 });
+  const [visibleReviewCount, setVisibleReviewCount] = useState(5);
+  const [imageOverlay, setImageOverlay] = useState(null);
   const { addToCart } = useCart();
   const { user } = useAuth();
   const { isInWishlist, toggleWishlist } = useWishlist();
 
   useEffect(() => {
     setLoading(true);
+    setVisibleReviewCount(5);
+    setSelectedImage(0);
     api.get(`/products/${slug}`)
       .then(res => setProduct(res.data.data))
       .catch(console.error)
@@ -64,6 +161,33 @@ export default function ProductDetail() {
     setZoomPos({ x, y });
   };
 
+  const openImageOverlay = (overlayImages, index = 0, title = product?.name) => {
+    if (!overlayImages?.length) return;
+    setImageOverlay({ images: overlayImages, index, title });
+  };
+
+  const closeImageOverlay = () => setImageOverlay(null);
+
+  const showPreviousOverlayImage = () => {
+    setImageOverlay(current => {
+      if (!current) return current;
+      return {
+        ...current,
+        index: (current.index - 1 + current.images.length) % current.images.length
+      };
+    });
+  };
+
+  const showNextOverlayImage = () => {
+    setImageOverlay(current => {
+      if (!current) return current;
+      return {
+        ...current,
+        index: (current.index + 1) % current.images.length
+      };
+    });
+  };
+
   if (loading) {
     return (
       <div className="container-custom py-8">
@@ -86,6 +210,19 @@ export default function ProductDetail() {
   const images = product.images?.length ? product.images : ['https://via.placeholder.com/600'];
   const inWishlist = isInWishlist(product.id);
   const HeartIcon = inWishlist ? HiHeart : HiOutlineHeart;
+  const reviews = product.reviews || [];
+  const visibleReviews = reviews.slice(0, visibleReviewCount);
+  const reviewImages = reviews.flatMap(review => (
+    parseReviewImages(review).map(image => ({
+      image,
+      reviewId: review.id,
+      userName: review.user_name
+    }))
+  ));
+  const reviewImageUrls = reviewImages.map(item => item.image);
+  const reviewPreviewImages = reviewImages.slice(0, 5);
+  const hiddenReviewImageCount = Math.max(reviewImages.length - reviewPreviewImages.length, 0);
+  const canShowMoreReviews = visibleReviewCount < reviews.length;
 
   return (
     <div className="container-custom py-6 md:py-8">
@@ -98,10 +235,19 @@ export default function ProductDetail() {
         {/* Image gallery */}
         <div className="space-y-4">
           <div
-            className="relative aspect-square rounded-2xl overflow-hidden bg-gray-50 dark:bg-gray-800 cursor-crosshair"
+            role="button"
+            tabIndex={0}
+            className="relative aspect-square cursor-zoom-in overflow-hidden rounded-2xl bg-gray-50 dark:bg-gray-800"
             onMouseEnter={() => setZoom(true)}
             onMouseLeave={() => setZoom(false)}
             onMouseMove={handleZoom}
+            onClick={() => openImageOverlay(images, selectedImage, product.name)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                openImageOverlay(images, selectedImage, product.name);
+              }
+            }}
           >
             <img
               src={images[selectedImage]}
@@ -216,11 +362,40 @@ export default function ProductDetail() {
       </div>
 
       {/* Reviews */}
-      {product.reviews?.length > 0 && (
+      {reviews.length > 0 && (
         <section className="mt-16">
-          <h2 className="text-2xl font-bold mb-6">Customer Reviews</h2>
+          <h2 className="mb-6 text-2xl font-bold">Customer Reviews</h2>
+
+          {reviewImages.length > 0 && (
+            <div className="mb-8 flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+              {reviewPreviewImages.map(({ image, reviewId, userName }, index) => {
+                const isLastVisible = index === reviewPreviewImages.length - 1 && hiddenReviewImageCount > 0;
+
+                return (
+                  <button
+                    key={`${reviewId}-${image}-${index}`}
+                    type="button"
+                    onClick={() => openImageOverlay(reviewImageUrls, index, `${userName || 'Customer'} review image`)}
+                    className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-gray-100 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md dark:border-gray-800 dark:bg-gray-900"
+                    aria-label={`Open customer review image ${index + 1}`}
+                  >
+                    <img src={image} alt="" className={`h-full w-full object-cover ${isLastVisible ? 'brightness-50' : ''}`} />
+                    {isLastVisible && (
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/35 text-lg font-bold text-white">
+                        +{hiddenReviewImageCount}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           <div className="space-y-4 max-w-2xl">
-            {product.reviews.map(review => (
+            {visibleReviews.map(review => {
+              const imagesForReview = parseReviewImages(review);
+
+              return (
               <div key={review.id} className="card p-6">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 bg-primary-100 dark:bg-primary-900 rounded-full flex items-center justify-center">
@@ -240,9 +415,45 @@ export default function ProductDetail() {
                 </div>
                 {review.title && <h4 className="font-medium mb-1">{review.title}</h4>}
                 {review.comment && <p className="text-sm text-gray-600 dark:text-gray-400">{review.comment}</p>}
+                {imagesForReview.length > 0 && (
+                  <div className="mt-4 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+                    {imagesForReview.slice(0, 6).map((image, index) => {
+                      const hiddenCount = Math.max(imagesForReview.length - 6, 0);
+                      const showCount = index === 5 && hiddenCount > 0;
+
+                      return (
+                        <button
+                          key={`${review.id}-inline-${image}-${index}`}
+                          type="button"
+                          onClick={() => openImageOverlay(imagesForReview, index, `${review.user_name || 'Customer'} review image`)}
+                          className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-100 transition-all hover:border-primary-300 dark:border-gray-800 dark:bg-gray-900"
+                          aria-label={`Open review image ${index + 1}`}
+                        >
+                          <img src={image} alt="" className={`h-full w-full object-cover ${showCount ? 'brightness-50' : ''}`} />
+                          {showCount && (
+                            <span className="absolute inset-0 flex items-center justify-center bg-black/35 text-sm font-bold text-white">
+                              +{hiddenCount}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            ))}
+              );
+            })}
           </div>
+
+          {canShowMoreReviews && (
+            <button
+              type="button"
+              onClick={() => setVisibleReviewCount(current => Math.min(reviews.length, current === 5 ? 25 : current + 20))}
+              className="btn-secondary mt-6 !px-5 !py-2.5 text-sm"
+            >
+              Show More Reviews
+            </button>
+          )}
         </section>
       )}
 
@@ -255,6 +466,15 @@ export default function ProductDetail() {
           </div>
         </section>
       )}
+
+      <ImageOverlay
+        images={imageOverlay?.images}
+        index={imageOverlay?.index || 0}
+        title={imageOverlay?.title}
+        onClose={closeImageOverlay}
+        onPrev={showPreviousOverlayImage}
+        onNext={showNextOverlayImage}
+      />
     </div>
   );
 }

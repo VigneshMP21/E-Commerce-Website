@@ -266,14 +266,23 @@ const buildInvoicePdfBlob = (order, { address, user } = {}) => {
     return cursorY;
   };
 
-  const drawQr = (x, y, cell = 2.4) => {
+  const drawQr = (x, y, maxSize = 68) => {
     const orderPath = `/orders/${encodeURIComponent(order.order_number || '')}`;
-    const invoiceUrl = typeof window !== 'undefined' && window.location?.origin
-      ? `${window.location.origin}${orderPath}`
-      : `VSHOP-INVOICE:${invoiceNumber};ORDER:${order.order_number};TOTAL:${formatInvoiceMoney(grandTotal)}`;
-    const qr = QRCode.create(invoiceUrl, { errorCorrectionLevel: 'M' });
+    const origin = typeof window !== 'undefined' ? window.location?.origin : '';
+    const localOrigin = /localhost|127\.0\.0\.1/i.test(origin || '');
+    const invoicePayload = origin && !localOrigin
+      ? `${origin}${orderPath}`
+      : [
+        'VShop Tax Invoice',
+        `Invoice: ${invoiceNumber}`,
+        `Order: ${order.order_number || order.id}`,
+        `Date: ${formatInvoiceDate(order.created_at)}`,
+        `Total: Rs. ${formatInvoiceMoney(grandTotal)}`
+      ].join('\n');
+    const qr = QRCode.create(invoicePayload, { errorCorrectionLevel: 'M' });
     const modules = qr.modules.size;
     const moduleData = qr.modules.data;
+    const cell = maxSize / modules;
     const size = modules * cell;
 
     commands.push('1 1 1 rg');
@@ -306,7 +315,7 @@ const buildInvoicePdfBlob = (order, { address, user } = {}) => {
     2
   );
   drawText('GSTIN - 33VSHOP1299K1ZI', 16, 96, 10, 'F2');
-  drawQr(614, 40, 2.4);
+  drawQr(614, 40, 68);
   drawRect(592, 126, 242, 30, 'S');
   drawWrappedText(`Invoice Number # ${invoiceNumber}`, 600, 144, 58, 8.5, 'F2', 10, 2);
   drawLine(8, 166, 834, 166, 1.5);

@@ -131,6 +131,7 @@ CREATE TABLE IF NOT EXISTS reviews (
   rating INT NOT NULL CHECK (rating >= 1 AND rating <= 5),
   title VARCHAR(255),
   comment TEXT,
+  images JSON,
   is_verified_purchase BOOLEAN DEFAULT false,
   is_approved BOOLEAN DEFAULT false,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

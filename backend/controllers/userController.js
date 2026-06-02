@@ -46,8 +46,13 @@ const toggleWishlist = async (req, res, next) => {
 
 const addReview = async (req, res, next) => {
   try {
-    const { productId, rating, title, comment } = req.body;
+    const { productId, rating, title, comment, images } = req.body;
     const reviewRating = Math.min(Math.max(parseInt(rating, 10) || 0, 1), 5);
+    const reviewImages = Array.isArray(images)
+      ? images.filter(image => typeof image === 'string' && image.trim()).slice(0, 5)
+      : [];
+    const [imageColumns] = await pool.execute("SHOW COLUMNS FROM reviews LIKE 'images'");
+    const supportsReviewImages = imageColumns.length > 0;
 
     const [orders] = await pool.execute(
       `SELECT oi.id FROM order_items oi
@@ -66,15 +71,29 @@ const addReview = async (req, res, next) => {
     );
 
     if (existing.length) {
-      await pool.execute(
-        'UPDATE reviews SET rating = ?, title = ?, comment = ?, is_approved = true WHERE id = ?',
-        [reviewRating, title || null, comment || null, existing[0].id]
-      );
+      if (supportsReviewImages) {
+        await pool.execute(
+          'UPDATE reviews SET rating = ?, title = ?, comment = ?, images = ?, is_approved = true WHERE id = ?',
+          [reviewRating, title || null, comment || null, JSON.stringify(reviewImages), existing[0].id]
+        );
+      } else {
+        await pool.execute(
+          'UPDATE reviews SET rating = ?, title = ?, comment = ?, is_approved = true WHERE id = ?',
+          [reviewRating, title || null, comment || null, existing[0].id]
+        );
+      }
     } else {
-      await pool.execute(
-        'INSERT INTO reviews (product_id, user_id, rating, title, comment, is_verified_purchase, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [productId, req.user.id, reviewRating, title || null, comment || null, true, true]
-      );
+      if (supportsReviewImages) {
+        await pool.execute(
+          'INSERT INTO reviews (product_id, user_id, rating, title, comment, images, is_verified_purchase, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          [productId, req.user.id, reviewRating, title || null, comment || null, JSON.stringify(reviewImages), true, true]
+        );
+      } else {
+        await pool.execute(
+          'INSERT INTO reviews (product_id, user_id, rating, title, comment, is_verified_purchase, is_approved) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [productId, req.user.id, reviewRating, title || null, comment || null, true, true]
+        );
+      }
     }
 
     const [stats] = await pool.execute(
