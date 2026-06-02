@@ -282,16 +282,16 @@ export default function Admin() {
 
   const uploadSingleImage = async (file) => {
     const formData = new FormData();
-    formData.append('images', file);
+    formData.append('image', file);
 
     const res = await api.post('/products/images', formData);
-    const uploadedImage = res.data.data?.[0];
+    const uploadedImageUrl = res.data.imageUrl || res.data.data?.[0]?.url;
 
-    if (!uploadedImage?.url) {
+    if (!uploadedImageUrl) {
       throw new Error('Image upload failed');
     }
 
-    return uploadedImage.url;
+    return uploadedImageUrl;
   };
 
   const handleProductCategoryImageUpload = async (event) => {
@@ -615,15 +615,12 @@ export default function Admin() {
     const files = Array.from(event.target.files || []);
     if (!files.length) return;
 
-    const formData = new FormData();
-    files.forEach(file => formData.append('images', file));
-
     setUploadingImages(true);
     try {
-      const res = await api.post('/products/images', formData);
-      const uploadedImages = (res.data.data || []).map(file => (
-        makeImageItem(file.url, 'upload', file.originalName || file.filename || 'Uploaded image')
-      ));
+      const uploadedImages = await Promise.all(files.map(async file => {
+        const imageUrl = await uploadSingleImage(file);
+        return makeImageItem(imageUrl, 'upload', file.name || 'Uploaded image');
+      }));
 
       setProductImages(prev => [...prev, ...uploadedImages]);
       toast.success(`${uploadedImages.length} image${uploadedImages.length === 1 ? '' : 's'} uploaded`);
