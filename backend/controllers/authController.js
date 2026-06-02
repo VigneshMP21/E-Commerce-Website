@@ -1,47 +1,35 @@
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const pool = require('../config/db');
+const db = require('../config/db');
 const { generateToken, generateRefreshToken, verifyRefreshToken } = require('../utils/jwt');
 const { AppError } = require('../utils/errors');
 const { sendWelcomeEmail, sendResetPasswordEmail } = require('../utils/email');
-
-let userPhoneColumnReady = false;
-
-const ensureUserPhoneColumn = async () => {
-  if (userPhoneColumnReady) return;
-
-  const [columns] = await pool.execute("SHOW COLUMNS FROM users LIKE 'phone'");
-  if (!columns.length) {
-    await pool.execute('ALTER TABLE users ADD COLUMN phone VARCHAR(20) NULL AFTER avatar');
-  }
-
-  userPhoneColumnReady = true;
-};
 
 const register = async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
 
-    const [existing] = await pool.execute('SELECT id FROM users WHERE email = ?', [email]);
+    const existing = await db.query('SELECT id FROM users WHERE email = $1', [email]);
     if (existing.length) {
       throw new AppError('Email already registered', 409);
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
-    const [result] = await pool.execute(
-      'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
+    const result = await db.query(
+      'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id',
       [name, email, hashedPassword]
     );
 
-    const token = generateToken({ id: result.insertId, role: 'user' });
-    const refreshToken = generateRefreshToken({ id: result.insertId });
+    const userId = result[0].id;
+    const token = generateToken({ id: userId, role: 'user' });
+    const refreshToken = generateRefreshToken({ id: userId });
 
     sendWelcomeEmail(email, name);
 
     res.status(201).json({
       success: true,
       message: 'Registration successful',
-      data: { token, refreshToken, user: { id: result.insertId, name, email, role: 'user' } }
+      data: { token, refreshToken, user: { id: userId, name, email, role: 'user' } }
     });
   } catch (error) {
     next(error);
@@ -52,8 +40,8 @@ const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    const [users] = await pool.execute(
-      'SELECT id, name, email, password, role, avatar, is_verified FROM users WHERE email = ?',
+    const users = await db.query(
+      'SELECT id, name, email, password, role, avatar, is_verified FROM users WHERE email = $1',
       [email]
     );
 
@@ -116,10 +104,8 @@ const refreshTokenHandler = async (req, res, next) => {
 
 const getProfile = async (req, res, next) => {
   try {
-    await ensureUserPhoneColumn();
-
-    const [users] = await pool.execute(
-      'SELECT id, name, email, role, avatar, phone, is_verified, created_at FROM users WHERE id = ?',
+    const users = await db.query(
+      'SELECT id, name, email, role, avatar, phone, is_verified, created_at FROM users WHERE id = $1',
       [req.user.id]
     );
 
@@ -136,10 +122,9 @@ const getProfile = async (req, res, next) => {
 const updateProfile = async (req, res, next) => {
   try {
     const { name, email, phone, avatar } = req.body;
-    await ensureUserPhoneColumn();
 
-    const [users] = await pool.execute(
-      'SELECT id, name, email, role, avatar, phone, is_verified, created_at FROM users WHERE id = ?',
+    const users = await db.query(
+      'SELECT id, name, email, role, avatar, phone, is_verified, created_at FROM users WHERE id = $1',
       [req.user.id]
     );
 
@@ -154,8 +139,8 @@ const updateProfile = async (req, res, next) => {
     const nextAvatar = typeof avatar === 'string' ? (avatar.trim() || null) : currentUser.avatar;
 
     if (nextEmail !== currentUser.email) {
-      const [existingEmail] = await pool.execute(
-        'SELECT id FROM users WHERE email = ? AND id != ?',
+      const existingEmail = await db.query(
+        'SELECT id FROM users WHERE email = $1 AND id != $2',
         [nextEmail, req.user.id]
       );
 
@@ -164,8 +149,8 @@ const updateProfile = async (req, res, next) => {
       }
     }
 
-    await pool.execute(
-      'UPDATE users SET name = ?, email = ?, phone = ?, avatar = ? WHERE id = ?',
+    await db.query(
+      'UPDATE users SET name = $1, email = $2, phone = $3, avatar = $4 WHERE id = $5',
       [nextName, nextEmail, nextPhone, nextAvatar, req.user.id]
     );
 
@@ -189,8 +174,8 @@ const changePassword = async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;
 
-    const [users] = await pool.execute(
-      'SELECT id, password FROM users WHERE id = ?',
+    const users = await db.query(
+      'SELECT id, password FROM users WHERE id = $1',
       [req.user.id]
     );
 
@@ -208,8 +193,8 @@ const changePassword = async (req, res, next) => {
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 12);
-    await pool.execute(
-      'UPDATE users SET password = ? WHERE id = ?',
+    await db.query(
+      'UPDATE users SET password = $1 WHERE id = $2',
       [hashedPassword, req.user.id]
     );
 
@@ -223,7 +208,7 @@ const forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
 
-    const [users] = await pool.execute('SELECT id, name FROM users WHERE email = ?', [email]);
+    const users = await db.query('SELECT id, name FROM users WHERE email = $1', [email]);
     if (!users.length) {
       return res.json({ success: true, message: 'If the email exists, a reset link has been sent' });
     }
@@ -232,8 +217,8 @@ const forgotPassword = async (req, res, next) => {
     const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
     const expires = new Date(Date.now() + 3600000);
 
-    await pool.execute(
-      'UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE id = ?',
+    await db.query(
+      'UPDATE users SET reset_token = $1, reset_token_expires = $2 WHERE id = $3',
       [hashedToken, expires, users[0].id]
     );
 
@@ -252,8 +237,8 @@ const resetPassword = async (req, res, next) => {
 
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-    const [users] = await pool.execute(
-      'SELECT id FROM users WHERE reset_token = ? AND reset_token_expires > NOW()',
+    const users = await db.query(
+      'SELECT id FROM users WHERE reset_token = $1 AND reset_token_expires > NOW()',
       [hashedToken]
     );
 
@@ -262,8 +247,8 @@ const resetPassword = async (req, res, next) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
-    await pool.execute(
-      'UPDATE users SET password = ?, reset_token = NULL, reset_token_expires = NULL WHERE id = ?',
+    await db.query(
+      'UPDATE users SET password = $1, reset_token = NULL, reset_token_expires = NULL WHERE id = $2',
       [hashedPassword, users[0].id]
     );
 
@@ -277,17 +262,17 @@ const googleAuth = async (req, res, next) => {
   try {
     const { email, name, googleId, avatar } = req.body;
 
-    let [users] = await pool.execute('SELECT id, role FROM users WHERE email = ?', [email]);
+    let users = await db.query('SELECT id, role FROM users WHERE email = $1', [email]);
 
     if (users.length) {
-      await pool.execute('UPDATE users SET google_id = ?, avatar = COALESCE(?, avatar) WHERE id = ?',
+      await db.query('UPDATE users SET google_id = $1, avatar = COALESCE($2, avatar) WHERE id = $3',
         [googleId, avatar, users[0].id]);
     } else {
-      const [result] = await pool.execute(
-        'INSERT INTO users (name, email, google_id, avatar, is_verified) VALUES (?, ?, ?, ?, true)',
+      const result = await db.query(
+        'INSERT INTO users (name, email, google_id, avatar, is_verified) VALUES ($1, $2, $3, $4, true) RETURNING id',
         [name, email, googleId, avatar]
       );
-      users = [{ id: result.insertId, role: 'user' }];
+      users = [{ id: result[0].id, role: 'user' }];
     }
 
     const token = generateToken({ id: users[0].id, role: users[0].role });

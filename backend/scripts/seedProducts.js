@@ -1,9 +1,10 @@
 const path = require('path');
-const mysql = require('mysql2/promise');
 const dotenv = require('dotenv');
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
+const db = require('../config/db');
 
 const categorySeeds = [
   { name: 'Electronics', slug: 'electronics', description: 'Latest gadgets and electronic devices' },
@@ -347,27 +348,32 @@ const buildProducts = () => {
 };
 
 const assertDbConfig = () => {
-  const required = ['DB_HOST', 'DB_USER', 'DB_NAME'];
-  const missing = required.filter(key => !process.env[key]);
-  if (missing.length) {
-    throw new Error(`Missing database environment variables: ${missing.join(', ')}`);
+  const hasConnectionString = Boolean(process.env.DATABASE_URL);
+  const hasDiscreteConfig = Boolean(
+    (process.env.PGHOST || process.env.DB_HOST)
+    && (process.env.PGUSER || process.env.DB_USER)
+    && (process.env.PGDATABASE || process.env.DB_NAME)
+  );
+
+  if (!hasConnectionString && !hasDiscreteConfig) {
+    throw new Error('Missing PostgreSQL database environment variables. Set DATABASE_URL or PGHOST, PGUSER and PGDATABASE.');
   }
 };
 
 const upsertCategory = async (connection, category, parentId = null) => {
-  await connection.execute(
+  const result = await connection.query(
     `INSERT INTO categories (name, slug, description, parent_id, is_active)
-     VALUES (?, ?, ?, ?, true)
-     ON DUPLICATE KEY UPDATE
-      name = VALUES(name),
-      description = VALUES(description),
-      parent_id = VALUES(parent_id),
-      is_active = true`,
+     VALUES ($1, $2, $3, $4, true)
+     ON CONFLICT (slug) DO UPDATE SET
+      name = EXCLUDED.name,
+      description = EXCLUDED.description,
+      parent_id = EXCLUDED.parent_id,
+      is_active = true
+     RETURNING id`,
     [category.name, category.slug, category.description, parentId]
   );
 
-  const [rows] = await connection.execute('SELECT id FROM categories WHERE slug = ?', [category.slug]);
-  return rows[0].id;
+  return result.rows[0].id;
 };
 
 const seedCategories = async (connection) => {
@@ -385,17 +391,17 @@ const seedCategories = async (connection) => {
 };
 
 const insertProductImages = async (connection, productId, product) => {
-  const [existingImages] = await connection.execute(
-    'SELECT COUNT(*) as count FROM product_images WHERE product_id = ?',
+  const existingImages = await connection.query(
+    'SELECT COUNT(*)::int as count FROM product_images WHERE product_id = $1',
     [productId]
   );
 
-  if (existingImages[0].count > 0) return;
+  if (existingImages.rows[0].count > 0) return;
 
   for (let index = 0; index < product.images.length; index += 1) {
-    await connection.execute(
+    await connection.query(
       `INSERT INTO product_images (product_id, url, alt_text, is_primary, sort_order)
-       VALUES (?, ?, ?, ?, ?)`,
+       VALUES ($1, $2, $3, $4, $5)`,
       [productId, product.images[index], product.name, index === 0, index]
     );
   }
@@ -404,16 +410,10 @@ const insertProductImages = async (connection, productId, product) => {
 const seedProducts = async () => {
   assertDbConfig();
 
-  const connection = await mysql.createConnection({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    port: process.env.DB_PORT || 3306
-  });
+  const connection = await db.getClient();
 
   try {
-    await connection.beginTransaction();
+    await connection.query('BEGIN');
 
     const categoryIds = await seedCategories(connection);
     const products = buildProducts();
@@ -424,33 +424,34 @@ const seedProducts = async () => {
         throw new Error(`Missing category for slug: ${product.categorySlug}`);
       }
 
-      await connection.execute(
+      const result = await connection.query(
         `INSERT INTO products (
           name, slug, description, short_description, price, compare_price, cost_price, sku,
           category_id, brand, stock_quantity, low_stock_threshold, images, specifications,
           is_featured, is_active, status, discount_percent, tax_rate, sales_count, rating, review_count
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, true, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-          name = VALUES(name),
-          description = VALUES(description),
-          short_description = VALUES(short_description),
-          price = VALUES(price),
-          compare_price = VALUES(compare_price),
-          cost_price = VALUES(cost_price),
-          category_id = VALUES(category_id),
-          brand = VALUES(brand),
-          stock_quantity = VALUES(stock_quantity),
-          low_stock_threshold = VALUES(low_stock_threshold),
-          images = VALUES(images),
-          specifications = VALUES(specifications),
-          is_featured = VALUES(is_featured),
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, true, $16, $17, $18, $19, $20, $21)
+        ON CONFLICT (slug) DO UPDATE SET
+          name = EXCLUDED.name,
+          description = EXCLUDED.description,
+          short_description = EXCLUDED.short_description,
+          price = EXCLUDED.price,
+          compare_price = EXCLUDED.compare_price,
+          cost_price = EXCLUDED.cost_price,
+          category_id = EXCLUDED.category_id,
+          brand = EXCLUDED.brand,
+          stock_quantity = EXCLUDED.stock_quantity,
+          low_stock_threshold = EXCLUDED.low_stock_threshold,
+          images = EXCLUDED.images,
+          specifications = EXCLUDED.specifications,
+          is_featured = EXCLUDED.is_featured,
           is_active = true,
-          status = VALUES(status),
-          discount_percent = VALUES(discount_percent),
-          tax_rate = VALUES(tax_rate),
-          sales_count = VALUES(sales_count),
-          rating = VALUES(rating),
-          review_count = VALUES(review_count)`,
+          status = EXCLUDED.status,
+          discount_percent = EXCLUDED.discount_percent,
+          tax_rate = EXCLUDED.tax_rate,
+          sales_count = EXCLUDED.sales_count,
+          rating = EXCLUDED.rating,
+          review_count = EXCLUDED.review_count
+        RETURNING id`,
         [
           product.name,
           product.slug,
@@ -476,17 +477,16 @@ const seedProducts = async () => {
         ]
       );
 
-      const [rows] = await connection.execute('SELECT id FROM products WHERE slug = ?', [product.slug]);
-      await insertProductImages(connection, rows[0].id, product);
+      await insertProductImages(connection, result.rows[0].id, product);
     }
 
-    await connection.commit();
+    await connection.query('COMMIT');
     console.log(`Seeded ${products.length} products with image galleries.`);
   } catch (error) {
-    await connection.rollback();
+    await connection.query('ROLLBACK');
     throw error;
   } finally {
-    await connection.end();
+    connection.release();
   }
 };
 

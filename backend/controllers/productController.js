@@ -1,4 +1,4 @@
-const pool = require('../config/db');
+const db = require('../config/db');
 const supabase = require('../config/supabase');
 const { AppError } = require('../utils/errors');
 
@@ -107,6 +107,11 @@ const getSearchPatterns = (value = '') => {
   return [...variants].map(term => `%${term}%`);
 };
 
+const addParam = (params, value) => {
+  params.push(value);
+  return `$${params.length}`;
+};
+
 const getUniqueCategorySlug = async (name, excludeId = null) => {
   const slugBase = makeSlug(name);
   if (!slugBase) {
@@ -118,16 +123,16 @@ const getUniqueCategorySlug = async (name, excludeId = null) => {
 
   while (true) {
     const params = [slug];
-    let sql = 'SELECT id FROM categories WHERE slug = ?';
+    let sql = 'SELECT id FROM categories WHERE slug = $1';
 
     if (excludeId) {
-      sql += ' AND id != ?';
       params.push(excludeId);
+      sql += ` AND id != $${params.length}`;
     }
 
     sql += ' LIMIT 1';
 
-    const [existingSlug] = await pool.execute(sql, params);
+    const existingSlug = await db.query(sql, params);
     if (!existingSlug.length) break;
 
     slug = `${slugBase}-${suffix}`;
@@ -152,17 +157,13 @@ const getProducts = async (req, res, next) => {
     const countParams = [];
 
     if (status === 'active') {
-      sql += ' AND p.status = ?';
-      countSql += ' AND p.status = ?';
-      params.push('active');
-      countParams.push('active');
+      sql += ` AND p.status = ${addParam(params, 'active')}`;
+      countSql += ` AND p.status = ${addParam(countParams, 'active')}`;
     }
 
     if (category) {
-      sql += ' AND (c.slug = ? OR c.parent_id = (SELECT id FROM categories WHERE slug = ?))';
-      countSql += ' AND (c.slug = ? OR c.parent_id = (SELECT id FROM categories WHERE slug = ?))';
-      params.push(category, category);
-      countParams.push(category, category);
+      sql += ` AND (c.slug = ${addParam(params, category)} OR c.parent_id = (SELECT id FROM categories WHERE slug = ${addParam(params, category)}))`;
+      countSql += ` AND (c.slug = ${addParam(countParams, category)} OR c.parent_id = (SELECT id FROM categories WHERE slug = ${addParam(countParams, category)}))`;
     }
 
     const searchPatterns = getSearchPatterns(search);
@@ -179,35 +180,29 @@ const getProducts = async (req, res, next) => {
         'pc.slug'
       ];
       const searchClause = searchPatterns
-        .flatMap(() => searchFields.map(field => `${field} LIKE ?`))
+        .flatMap(pattern => searchFields.map(field => `${field} ILIKE ${addParam(params, pattern)}`))
         .join(' OR ');
-      const searchValues = searchPatterns.flatMap(pattern => searchFields.map(() => pattern));
+      const countSearchClause = searchPatterns
+        .flatMap(pattern => searchFields.map(field => `${field} ILIKE ${addParam(countParams, pattern)}`))
+        .join(' OR ');
 
       sql += ` AND (${searchClause})`;
-      countSql += ` AND (${searchClause})`;
-      params.push(...searchValues);
-      countParams.push(...searchValues);
+      countSql += ` AND (${countSearchClause})`;
     }
 
     if (minPrice) {
-      sql += ' AND p.price >= ?';
-      countSql += ' AND p.price >= ?';
-      params.push(parseFloat(minPrice));
-      countParams.push(parseFloat(minPrice));
+      sql += ` AND p.price >= ${addParam(params, parseFloat(minPrice))}`;
+      countSql += ` AND p.price >= ${addParam(countParams, parseFloat(minPrice))}`;
     }
 
     if (maxPrice) {
-      sql += ' AND p.price <= ?';
-      countSql += ' AND p.price <= ?';
-      params.push(parseFloat(maxPrice));
-      countParams.push(parseFloat(maxPrice));
+      sql += ` AND p.price <= ${addParam(params, parseFloat(maxPrice))}`;
+      countSql += ` AND p.price <= ${addParam(countParams, parseFloat(maxPrice))}`;
     }
 
     if (rating) {
-      sql += ` AND ${reviewRatingExpr} >= ?`;
-      countSql += ` AND ${reviewRatingExpr} >= ?`;
-      params.push(parseFloat(rating));
-      countParams.push(parseFloat(rating));
+      sql += ` AND ${reviewRatingExpr} >= ${addParam(params, parseFloat(rating))}`;
+      countSql += ` AND ${reviewRatingExpr} >= ${addParam(countParams, parseFloat(rating))}`;
     }
 
     if (featured === 'true') {
@@ -226,17 +221,16 @@ const getProducts = async (req, res, next) => {
     sql += ' ORDER BY ' + (sortOptions[sort] || 'p.created_at DESC');
 
     const offset = (parseInt(page) - 1) * parseInt(limit);
-    sql += ' LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), offset);
+    sql += ` LIMIT ${addParam(params, parseInt(limit))} OFFSET ${addParam(params, offset)}`;
 
-    const [products] = await pool.execute(sql, params);
+    const products = await db.query(sql, params);
     products.forEach(product => {
       applyReviewStats(product);
       product.images = parseJsonArray(product.images);
       product.specifications = parseJsonArray(product.specifications);
     });
 
-    const [countResult] = await pool.execute(countSql, countParams);
+    const countResult = await db.query(countSql, countParams);
     const total = countResult[0].total;
 
     res.json({
@@ -258,10 +252,10 @@ const getProductBySlug = async (req, res, next) => {
   try {
     const { slug } = req.params;
 
-    const [products] = await pool.execute(
+    const products = await db.query(
       `SELECT p.*, ${reviewRatingExpr} as computed_rating, ${reviewCountExpr} as computed_review_count, c.name as category_name, c.slug as category_slug
        FROM products p LEFT JOIN categories c ON p.category_id = c.id ${reviewStatsJoin}
-       WHERE p.slug = ?`,
+       WHERE p.slug = $1`,
       [slug]
     );
 
@@ -274,21 +268,21 @@ const getProductBySlug = async (req, res, next) => {
     product.images = parseJsonArray(product.images);
     product.specifications = parseJsonArray(product.specifications);
 
-    const [variants] = await pool.execute(
-      'SELECT * FROM product_variants WHERE product_id = ? AND is_active = true',
+    const variants = await db.query(
+      'SELECT * FROM product_variants WHERE product_id = $1 AND is_active = true',
       [product.id]
     );
 
-    const [imageRows] = await pool.execute(
-      'SELECT * FROM product_images WHERE product_id = ? ORDER BY sort_order',
+    const imageRows = await db.query(
+      'SELECT * FROM product_images WHERE product_id = $1 ORDER BY sort_order',
       [product.id]
     );
     const galleryImages = imageRows.length ? imageRows.map(image => image.url) : product.images;
 
-    const [reviews] = await pool.execute(
+    const reviews = await db.query(
       `SELECT r.*, u.name as user_name, u.avatar as user_avatar
        FROM reviews r JOIN users u ON r.user_id = u.id
-       WHERE r.product_id = ? AND (r.is_approved = true OR r.is_verified_purchase = true)
+       WHERE r.product_id = $1 AND (r.is_approved = true OR r.is_verified_purchase = true)
        ORDER BY r.created_at DESC`,
       [product.id]
     );
@@ -296,22 +290,22 @@ const getProductBySlug = async (req, res, next) => {
       review.images = parseJsonArray(review.images);
     });
 
-    const [related] = await pool.execute(
+    const related = await db.query(
       `SELECT p.id, p.name, p.slug, p.price, p.compare_price, p.images, ${reviewRatingExpr} as computed_rating, ${reviewCountExpr} as computed_review_count
        FROM products p ${reviewStatsJoin}
-       WHERE p.category_id = ? AND p.id != ? AND p.is_active = true
+       WHERE p.category_id = $1 AND p.id != $2 AND p.is_active = true
        LIMIT 6`,
       [product.category_id, product.id]
     );
 
     related.forEach(p => {
       applyReviewStats(p);
-      p.images = p.images ? JSON.parse(p.images) : [];
+      p.images = parseJsonArray(p.images);
     });
 
     if (req.user) {
-      await pool.execute(
-        'INSERT INTO recently_viewed (user_id, product_id) VALUES (?, ?)',
+      await db.query(
+        'INSERT INTO recently_viewed (user_id, product_id) VALUES ($1, $2)',
         [req.user.id, product.id]
       );
     }
@@ -333,11 +327,12 @@ const createProduct = async (req, res, next) => {
       isFeatured, status, discountPercent, taxRate
     } = req.body;
 
-    const [result] = await pool.execute(
+    const result = await db.query(
       `INSERT INTO products (name, slug, description, short_description, price, compare_price,
         category_id, brand, stock_quantity, sku, images, specifications, is_featured, status,
         discount_percent, tax_rate)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+       RETURNING id`,
       [name, slug, description, shortDescription, price, comparePrice,
         categoryId, brand, stockQuantity, sku,
         images ? JSON.stringify(images) : null,
@@ -348,7 +343,7 @@ const createProduct = async (req, res, next) => {
     res.status(201).json({
       success: true,
       message: 'Product created successfully',
-      data: { id: result.insertId }
+      data: { id: result[0].id }
     });
   } catch (error) {
     next(error);
@@ -369,8 +364,8 @@ const createCategory = async (req, res, next) => {
       throw new AppError('Valid parent category is required', 400);
     }
 
-    const [existingByName] = await pool.execute(
-      'SELECT * FROM categories WHERE LOWER(name) = LOWER(?) AND parent_id <=> ? LIMIT 1',
+    const existingByName = await db.query(
+      'SELECT * FROM categories WHERE LOWER(name) = LOWER($1) AND parent_id IS NOT DISTINCT FROM $2 LIMIT 1',
       [trimmedName, parentCategoryId]
     );
 
@@ -384,9 +379,10 @@ const createCategory = async (req, res, next) => {
 
     const slug = await getUniqueCategorySlug(trimmedName);
 
-    const [result] = await pool.execute(
+    const result = await db.query(
       `INSERT INTO categories (name, slug, description, image, parent_id, is_active)
-       VALUES (?, ?, ?, ?, ?, true)`,
+       VALUES ($1, $2, $3, $4, $5, true)
+       RETURNING id`,
       [trimmedName, slug, description || null, image || null, parentCategoryId]
     );
 
@@ -394,7 +390,7 @@ const createCategory = async (req, res, next) => {
       success: true,
       message: 'Category created successfully',
       data: {
-        id: result.insertId,
+        id: result[0].id,
         name: trimmedName,
         slug,
         description: description || null,
@@ -417,8 +413,8 @@ const updateCategory = async (req, res, next) => {
       throw new AppError('Valid category is required', 400);
     }
 
-    const [categories] = await pool.execute(
-      'SELECT * FROM categories WHERE id = ? LIMIT 1',
+    const categories = await db.query(
+      'SELECT * FROM categories WHERE id = $1 LIMIT 1',
       [categoryId]
     );
 
@@ -447,8 +443,8 @@ const updateCategory = async (req, res, next) => {
         throw new AppError('A category cannot be its own parent', 400);
       }
 
-      const [parents] = await pool.execute(
-        'SELECT id, parent_id FROM categories WHERE id = ? AND is_active = true LIMIT 1',
+      const parents = await db.query(
+        'SELECT id, parent_id FROM categories WHERE id = $1 AND is_active = true LIMIT 1',
         [nextParentId]
       );
 
@@ -460,8 +456,8 @@ const updateCategory = async (req, res, next) => {
         throw new AppError('Parent category must be a top-level category', 400);
       }
 
-      const [children] = await pool.execute(
-        'SELECT COUNT(*) as total FROM categories WHERE parent_id = ? AND is_active = true',
+      const children = await db.query(
+        'SELECT COUNT(*)::int as total FROM categories WHERE parent_id = $1 AND is_active = true',
         [categoryId]
       );
 
@@ -470,8 +466,8 @@ const updateCategory = async (req, res, next) => {
       }
     }
 
-    const [duplicates] = await pool.execute(
-      'SELECT id FROM categories WHERE LOWER(name) = LOWER(?) AND parent_id <=> ? AND id != ? LIMIT 1',
+    const duplicates = await db.query(
+      'SELECT id FROM categories WHERE LOWER(name) = LOWER($1) AND parent_id IS NOT DISTINCT FROM $2 AND id != $3 LIMIT 1',
       [nextName, nextParentId, categoryId]
     );
 
@@ -483,32 +479,27 @@ const updateCategory = async (req, res, next) => {
     const values = [];
 
     if (name !== undefined) {
-      fields.push('name = ?', 'slug = ?');
-      values.push(nextName, await getUniqueCategorySlug(nextName, categoryId));
+      fields.push(`name = ${addParam(values, nextName)}`, `slug = ${addParam(values, await getUniqueCategorySlug(nextName, categoryId))}`);
     }
 
     if (parentId !== undefined) {
-      fields.push('parent_id = ?');
-      values.push(nextParentId);
+      fields.push(`parent_id = ${addParam(values, nextParentId)}`);
     }
 
     if (description !== undefined) {
-      fields.push('description = ?');
-      values.push(description || null);
+      fields.push(`description = ${addParam(values, description || null)}`);
     }
 
     if (image !== undefined) {
-      fields.push('image = ?');
-      values.push(image || null);
+      fields.push(`image = ${addParam(values, image || null)}`);
     }
 
     if (!fields.length) {
       throw new AppError('No fields to update', 400);
     }
 
-    values.push(categoryId);
-    await pool.execute(
-      `UPDATE categories SET ${fields.join(', ')} WHERE id = ?`,
+    await db.query(
+      `UPDATE categories SET ${fields.join(', ')} WHERE id = ${addParam(values, categoryId)}`,
       values
     );
 
@@ -526,8 +517,8 @@ const deleteCategory = async (req, res, next) => {
       throw new AppError('Valid category is required', 400);
     }
 
-    const [categories] = await pool.execute(
-      'SELECT id FROM categories WHERE id = ? LIMIT 1',
+    const categories = await db.query(
+      'SELECT id FROM categories WHERE id = $1 LIMIT 1',
       [categoryId]
     );
 
@@ -535,7 +526,7 @@ const deleteCategory = async (req, res, next) => {
       throw new AppError('Category not found', 404);
     }
 
-    await pool.execute('DELETE FROM categories WHERE id = ?', [categoryId]);
+    await db.query('DELETE FROM categories WHERE id = $1', [categoryId]);
 
     res.json({ success: true, message: 'Category deleted successfully' });
   } catch (error) {
@@ -578,28 +569,24 @@ const updateProduct = async (req, res, next) => {
 
     for (const [key, dbField] of Object.entries(fieldMap)) {
       if (updates[key] !== undefined) {
-        fields.push(`${dbField} = ?`);
-        values.push(updates[key]);
+        fields.push(`${dbField} = ${addParam(values, updates[key])}`);
       }
     }
 
     if (updates.images) {
-      fields.push('images = ?');
-      values.push(JSON.stringify(updates.images));
+      fields.push(`images = ${addParam(values, JSON.stringify(updates.images))}`);
     }
 
     if (updates.specifications) {
-      fields.push('specifications = ?');
-      values.push(JSON.stringify(updates.specifications));
+      fields.push(`specifications = ${addParam(values, JSON.stringify(updates.specifications))}`);
     }
 
     if (fields.length === 0) {
       throw new AppError('No fields to update', 400);
     }
 
-    values.push(id);
-    await pool.execute(
-      `UPDATE products SET ${fields.join(', ')} WHERE id = ?`,
+    await db.query(
+      `UPDATE products SET ${fields.join(', ')} WHERE id = ${addParam(values, id)}`,
       values
     );
 
@@ -612,7 +599,7 @@ const updateProduct = async (req, res, next) => {
 const deleteProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
-    await pool.execute('DELETE FROM products WHERE id = ?', [id]);
+    await db.query('DELETE FROM products WHERE id = $1', [id]);
     res.json({ success: true, message: 'Product deleted successfully' });
   } catch (error) {
     next(error);
@@ -621,8 +608,8 @@ const deleteProduct = async (req, res, next) => {
 
 const getCategories = async (req, res, next) => {
   try {
-    const [categories] = await pool.execute(
-      `SELECT c.*, (SELECT COUNT(*) FROM products WHERE category_id = c.id AND is_active = true) as product_count
+    const categories = await db.query(
+      `SELECT c.*, (SELECT COUNT(*)::int FROM products WHERE category_id = c.id AND is_active = true) as product_count
        FROM categories c WHERE c.is_active = true ORDER BY c.name`
     );
 
@@ -642,16 +629,16 @@ const getCategories = async (req, res, next) => {
 
 const getFeaturedProducts = async (req, res, next) => {
   try {
-    const [products] = await pool.execute(
+    const products = await db.query(
       `SELECT p.id, p.name, p.slug, p.price, p.compare_price, p.images, ${reviewRatingExpr} as computed_rating, ${reviewCountExpr} as computed_review_count, p.discount_percent
        FROM products p ${reviewStatsJoin}
        WHERE p.is_featured = true AND p.is_active = true AND p.status = 'active'
-       ORDER BY RAND() LIMIT 8`
+       ORDER BY RANDOM() LIMIT 8`
     );
 
     products.forEach(p => {
       applyReviewStats(p);
-      p.images = p.images ? JSON.parse(p.images) : [];
+      p.images = parseJsonArray(p.images);
     });
 
     res.json({ success: true, data: products });

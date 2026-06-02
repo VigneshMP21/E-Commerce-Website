@@ -10,11 +10,13 @@ module.exports = {
     refreshExpire: process.env.JWT_REFRESH_EXPIRE || '30d'
   },
   db: {
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    name: process.env.DB_NAME,
-    port: process.env.DB_PORT || 3306
+    url: process.env.DATABASE_URL,
+    host: process.env.PGHOST || process.env.DB_HOST,
+    user: process.env.PGUSER || process.env.DB_USER,
+    password: process.env.PGPASSWORD || process.env.DB_PASSWORD,
+    name: process.env.PGDATABASE || process.env.DB_NAME,
+    port: process.env.PGPORT || process.env.DB_PORT || 5432,
+    ssl: process.env.PGSSLMODE !== 'disable'
   },
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY,

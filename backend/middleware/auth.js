@@ -1,5 +1,5 @@
 const { verifyToken } = require('../utils/jwt');
-const pool = require('../config/db');
+const db = require('../config/db');
 const { AppError } = require('../utils/errors');
 
 const authenticate = async (req, res, next) => {
@@ -12,8 +12,8 @@ const authenticate = async (req, res, next) => {
     const token = authHeader.split(' ')[1];
     const decoded = verifyToken(token);
 
-    const [users] = await pool.execute(
-      'SELECT id, name, email, role, avatar FROM users WHERE id = ?',
+    const users = await db.query(
+      'SELECT id, name, email, role, avatar FROM users WHERE id = $1',
       [decoded.id]
     );
 
