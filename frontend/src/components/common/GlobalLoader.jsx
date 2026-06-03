@@ -24,7 +24,12 @@ export default function GlobalLoader() {
       aria-busy={visible}
     >
       <div className="flex flex-col items-center">
-        <img src={logo} alt="V Shop logo" className="h-[150px] w-[150px] rounded-2xl object-cover shadow-xl" />
+        <div className="global-loader-orbit" aria-hidden="true">
+          <div className="global-loader-logo">
+            <img src={logo} alt="" className="h-full w-full rounded-full object-cover" />
+          </div>
+        </div>
+        <span className="sr-only">Loading</span>
         <p className="mt-5 text-base font-semibold text-gray-900 dark:text-white">
           {LOADING_TEXT.split('').map((char, index) => (
             <span
