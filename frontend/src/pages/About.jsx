@@ -65,22 +65,22 @@ const serviceHighlights = [
 
 export default function About() {
   return (
-    <div className="bg-white dark:bg-gray-950">
+    <div className="bg-white">
       <section className="container-custom py-6 md:py-8">
-        <div className="relative min-h-[430px] overflow-hidden rounded-2xl bg-gray-950">
+        <div className="relative min-h-[430px] overflow-hidden rounded-2xl border border-gray-100 bg-primary-50">
           <img
             src={heroImage}
             alt="Curated premium products from V Shop"
-            className="absolute inset-0 h-full w-full object-cover object-center opacity-70"
+            className="absolute inset-0 h-full w-full object-cover object-center opacity-35"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-gray-950 via-gray-950/75 to-gray-950/10" />
+          <div className="absolute inset-0 bg-gradient-to-r from-white via-white/90 to-white/30" />
 
           <div className="relative flex min-h-[430px] max-w-3xl flex-col justify-center px-6 py-10 sm:px-10 lg:px-14">
-            <span className="mb-4 inline-flex w-fit items-center rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white backdrop-blur">
+            <span className="mb-4 inline-flex w-fit items-center rounded-full border border-primary-100 bg-white/80 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-primary-700 shadow-sm backdrop-blur">
               Trusted online shopping
             </span>
-            <h1 className="text-3xl font-bold leading-tight text-white md:text-5xl">About V Shop</h1>
-            <p className="mt-5 max-w-2xl text-base leading-7 text-gray-200 md:text-lg">
+            <h1 className="text-3xl font-bold leading-tight text-gray-900 md:text-5xl">About V Shop</h1>
+            <p className="mt-5 max-w-2xl text-base leading-7 text-gray-600 md:text-lg">
               V Shop is built for customers who want a polished, dependable shopping experience:
               curated products, transparent prices, secure checkout and service that stays useful after delivery.
             </p>
@@ -88,7 +88,7 @@ export default function About() {
               <Link to="/shop" className="btn-primary w-full justify-center sm:w-auto">
                 Explore Products
               </Link>
-              <Link to="/contact" className="btn-secondary w-full justify-center !border-white/25 !bg-white/10 !text-white hover:!bg-white/20 sm:w-auto">
+              <Link to="/contact" className="btn-secondary w-full justify-center sm:w-auto">
                 Contact Support
               </Link>
             </div>
@@ -172,10 +172,10 @@ export default function About() {
       </section>
 
       <section className="container-custom pb-16">
-        <div className="flex flex-col items-start justify-between gap-6 rounded-2xl bg-gray-950 px-6 py-8 text-white md:flex-row md:items-center md:px-8">
+        <div className="flex flex-col items-start justify-between gap-6 rounded-2xl border border-primary-100 bg-primary-50 px-6 py-8 text-gray-900 md:flex-row md:items-center md:px-8">
           <div>
             <h2 className="text-2xl font-bold">Ready to shop with confidence?</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-300">
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600">
               Browse curated collections, track your orders and get support from one dependable e-commerce experience.
             </p>
           </div>

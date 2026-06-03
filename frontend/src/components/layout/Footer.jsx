@@ -58,11 +58,11 @@ const paymentIcons = [
 
 const FooterColumn = ({ title, links }) => (
   <div>
-    <h3 className="text-sm font-semibold uppercase tracking-wider text-white">{title}</h3>
+    <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-900">{title}</h3>
     <ul className="mt-4 space-y-3">
       {links.map(link => (
         <li key={link.name}>
-          <Link to={link.path} className="text-sm text-gray-400 transition-colors hover:text-white">
+          <Link to={link.path} className="text-sm text-gray-500 transition-colors hover:text-primary-600">
             {link.name}
           </Link>
         </li>
@@ -73,17 +73,17 @@ const FooterColumn = ({ title, links }) => (
 
 export default function Footer() {
   return (
-    <footer className="border-t border-gray-100 bg-gray-950 text-gray-300 dark:border-gray-800">
-      <div className="border-b border-white/10 bg-white/[0.03]">
+    <footer className="border-t border-gray-100 bg-white text-gray-600">
+      <div className="border-b border-gray-100 bg-primary-50/70">
         <div className="container-custom grid gap-4 py-6 sm:grid-cols-2 lg:grid-cols-4">
           {serviceHighlights.map(item => (
             <div key={item.title} className="flex items-start gap-3">
-              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-white/10 text-primary-300">
+              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border border-primary-100 bg-white text-primary-600 shadow-sm">
                 <item.icon size={22} />
               </div>
               <div>
-                <p className="font-semibold text-white">{item.title}</p>
-                <p className="mt-1 text-sm text-gray-400">{item.text}</p>
+                <p className="font-semibold text-gray-900">{item.title}</p>
+                <p className="mt-1 text-sm text-gray-500">{item.text}</p>
               </div>
             </div>
           ))}
@@ -96,7 +96,7 @@ export default function Footer() {
             <Link to="/" className="inline-flex items-center gap-3">
               <img src={logo} alt="V Shop logo" className="h-12 w-28 rounded-lg object-cover object-center" />
             </Link>
-            <p className="mt-5 max-w-sm text-sm leading-6 text-gray-400">
+            <p className="mt-5 max-w-sm text-sm leading-6 text-gray-500">
               V Shop brings curated products, secure checkout and dependable delivery together in one professional e-commerce experience.
             </p>
 
@@ -106,7 +106,7 @@ export default function Footer() {
                   key={link.name}
                   href={link.href}
                   aria-label={link.name}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-gray-400 transition-colors hover:border-primary-400 hover:text-white"
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-600"
                 >
                   <link.icon size={16} />
                 </a>
@@ -119,38 +119,38 @@ export default function Footer() {
           <FooterColumn title="Company" links={footerLinks.company} />
 
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-white">Contact</h3>
-            <div className="mt-4 space-y-4 text-sm text-gray-400">
-              <a href={`mailto:${CONTACT_EMAIL}`} className="flex gap-3 transition-colors hover:text-white">
-                <HiOutlineMail size={19} className="mt-0.5 flex-shrink-0 text-primary-300" />
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-900">Contact</h3>
+            <div className="mt-4 space-y-4 text-sm text-gray-500">
+              <a href={`mailto:${CONTACT_EMAIL}`} className="flex gap-3 transition-colors hover:text-primary-600">
+                <HiOutlineMail size={19} className="mt-0.5 flex-shrink-0 text-primary-600" />
                 <span>{CONTACT_EMAIL}</span>
               </a>
-              <a href={`tel:${CONTACT_PHONE.replace(/\s/g, '')}`} className="flex gap-3 transition-colors hover:text-white">
-                <HiOutlinePhone size={19} className="mt-0.5 flex-shrink-0 text-primary-300" />
+              <a href={`tel:${CONTACT_PHONE.replace(/\s/g, '')}`} className="flex gap-3 transition-colors hover:text-primary-600">
+                <HiOutlinePhone size={19} className="mt-0.5 flex-shrink-0 text-primary-600" />
                 <span>{CONTACT_PHONE}</span>
               </a>
               <p className="flex gap-3 leading-6">
-                <HiOutlineLocationMarker size={19} className="mt-0.5 flex-shrink-0 text-primary-300" />
+                <HiOutlineLocationMarker size={19} className="mt-0.5 flex-shrink-0 text-primary-600" />
                 <span>{CONTACT_ADDRESS}</span>
               </p>
             </div>
 
-            <Link to="/contact" className="mt-6 inline-flex rounded-xl border border-white/10 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:border-primary-400 hover:bg-white/5">
+            <Link to="/contact" className="mt-6 inline-flex rounded-xl border border-primary-100 bg-primary-50 px-4 py-2.5 text-sm font-semibold text-primary-700 transition-colors hover:border-primary-200 hover:bg-primary-100">
               Send a Message
             </Link>
           </div>
         </div>
       </div>
 
-      <div className="border-t border-white/10">
+      <div className="border-t border-gray-100 bg-gray-50">
         <div className="container-custom flex flex-col gap-5 py-6 lg:flex-row lg:items-center lg:justify-between">
           <p className="text-sm text-gray-500">
             &copy; {new Date().getFullYear()} V Shop. All rights reserved.
           </p>
 
           <div className="flex flex-wrap items-center gap-4">
-            <span className="text-sm font-medium text-gray-400">Secure payments</span>
-            <div className="flex items-center gap-2 text-3xl text-gray-300">
+            <span className="text-sm font-medium text-gray-500">Secure payments</span>
+            <div className="flex items-center gap-2 text-3xl text-gray-500">
               {paymentIcons.map(item => (
                 <item.icon key={item.name} title={item.name} />
               ))}
@@ -158,9 +158,9 @@ export default function Footer() {
           </div>
 
           <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
-            <a href="#" className="transition-colors hover:text-white">Privacy Policy</a>
-            <a href="#" className="transition-colors hover:text-white">Terms</a>
-            <a href="#" className="transition-colors hover:text-white">Cookies</a>
+            <a href="#" className="transition-colors hover:text-primary-600">Privacy Policy</a>
+            <a href="#" className="transition-colors hover:text-primary-600">Terms</a>
+            <a href="#" className="transition-colors hover:text-primary-600">Cookies</a>
           </div>
         </div>
       </div>
