@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   HiOutlineHeart,
@@ -22,9 +22,43 @@ import api from '../services/api';
 import { formatDate, formatPrice } from '../utils/helpers';
 
 const MAX_PROFILE_IMAGE_SIZE = 5 * 1024 * 1024;
-const SQUARE_CROP_PREVIEW_SIZE = 280;
 const CROPPED_AVATAR_SIZE = 512;
 const CROPPED_AVATAR_TYPE = 'image/jpeg';
+const DEFAULT_AVATAR_CROP = { x: 0, y: 0, size: 0 };
+
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+const getMinimumCropSize = (naturalWidth, naturalHeight) => {
+  const maxSize = Math.min(naturalWidth || 0, naturalHeight || 0);
+  if (!maxSize) return 0;
+
+  return Math.min(maxSize, Math.max(64, maxSize * 0.2));
+};
+
+const getInitialAvatarCrop = (naturalWidth, naturalHeight) => {
+  const maxSize = Math.min(naturalWidth || 0, naturalHeight || 0);
+  const size = maxSize ? maxSize * 0.72 : 0;
+
+  return {
+    x: Math.max(((naturalWidth || 0) - size) / 2, 0),
+    y: Math.max(((naturalHeight || 0) - size) / 2, 0),
+    size
+  };
+};
+
+const clampAvatarCrop = (crop, naturalWidth, naturalHeight) => {
+  const maxSize = Math.min(naturalWidth || 0, naturalHeight || 0);
+  if (!maxSize) return DEFAULT_AVATAR_CROP;
+
+  const minSize = getMinimumCropSize(naturalWidth, naturalHeight);
+  const size = clamp(Number(crop.size) || minSize, minSize, maxSize);
+
+  return {
+    x: clamp(Number(crop.x) || 0, 0, Math.max((naturalWidth || 0) - size, 0)),
+    y: clamp(Number(crop.y) || 0, 0, Math.max((naturalHeight || 0) - size, 0)),
+    size
+  };
+};
 
 const loadImage = (src) => new Promise((resolve, reject) => {
   const image = new Image();
@@ -33,11 +67,9 @@ const loadImage = (src) => new Promise((resolve, reject) => {
   image.src = src;
 });
 
-const createSquareCroppedAvatarFile = async (file, imageUrl) => {
+const createManualCroppedAvatarFile = async (file, imageUrl, crop) => {
   const image = await loadImage(imageUrl);
-  const sourceSize = Math.min(image.naturalWidth, image.naturalHeight);
-  const sourceX = Math.max((image.naturalWidth - sourceSize) / 2, 0);
-  const sourceY = Math.max((image.naturalHeight - sourceSize) / 2, 0);
+  const safeCrop = clampAvatarCrop(crop, image.naturalWidth, image.naturalHeight);
 
   const canvas = document.createElement('canvas');
   canvas.width = CROPPED_AVATAR_SIZE;
@@ -45,10 +77,10 @@ const createSquareCroppedAvatarFile = async (file, imageUrl) => {
   const context = canvas.getContext('2d');
   context.drawImage(
     image,
-    sourceX,
-    sourceY,
-    sourceSize,
-    sourceSize,
+    safeCrop.x,
+    safeCrop.y,
+    safeCrop.size,
+    safeCrop.size,
     0,
     0,
     CROPPED_AVATAR_SIZE,
@@ -87,6 +119,7 @@ export default function Dashboard() {
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileForm, setProfileForm] = useState(getDefaultProfileForm(user));
   const [pendingAvatar, setPendingAvatar] = useState(null);
+  const [avatarCrop, setAvatarCrop] = useState(DEFAULT_AVATAR_CROP);
   const [avatarCropSaving, setAvatarCropSaving] = useState(false);
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
@@ -184,12 +217,30 @@ export default function Dashboard() {
 
     setPendingAvatar({
       file,
-      url: URL.createObjectURL(file)
+      url: URL.createObjectURL(file),
+      naturalWidth: 0,
+      naturalHeight: 0
     });
+    setAvatarCrop(DEFAULT_AVATAR_CROP);
+  };
+
+  const updateAvatarCrop = (nextCrop) => {
+    setAvatarCrop(current => clampAvatarCrop(
+      { ...current, ...nextCrop },
+      pendingAvatar?.naturalWidth,
+      pendingAvatar?.naturalHeight
+    ));
+  };
+
+  const handlePendingAvatarImageLoad = (naturalWidth, naturalHeight) => {
+    const initialCrop = getInitialAvatarCrop(naturalWidth, naturalHeight);
+    setPendingAvatar(current => current ? { ...current, naturalWidth, naturalHeight } : current);
+    setAvatarCrop(clampAvatarCrop(initialCrop, naturalWidth, naturalHeight));
   };
 
   const closeAvatarCrop = () => {
     setPendingAvatar(null);
+    setAvatarCrop(DEFAULT_AVATAR_CROP);
     setAvatarCropSaving(false);
   };
 
@@ -198,7 +249,7 @@ export default function Dashboard() {
 
     setAvatarCropSaving(true);
     try {
-      const croppedFile = await createSquareCroppedAvatarFile(pendingAvatar.file, pendingAvatar.url);
+      const croppedFile = await createManualCroppedAvatarFile(pendingAvatar.file, pendingAvatar.url, avatarCrop);
       const payload = new FormData();
       payload.append('avatarImage', croppedFile);
 
@@ -214,9 +265,10 @@ export default function Dashboard() {
       }));
       setUser?.(updatedUser);
       setPendingAvatar(null);
+      setAvatarCrop(DEFAULT_AVATAR_CROP);
       toast.success(res.data.message || 'Profile image uploaded');
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Unable to upload square cropped image');
+      toast.error(error.response?.data?.message || 'Unable to upload cropped image');
     } finally {
       setAvatarCropSaving(false);
     }
@@ -462,7 +514,10 @@ export default function Dashboard() {
 
       <AvatarCropModal
         pendingAvatar={pendingAvatar}
+        crop={avatarCrop}
         saving={avatarCropSaving}
+        onCropChange={updateAvatarCrop}
+        onImageLoad={handlePendingAvatarImageLoad}
         onCancel={closeAvatarCrop}
         onApply={applyAvatarCrop}
       />
@@ -612,8 +667,159 @@ function ProfileEditForm({ form, saving, onChange, onAvatarChange, onCancel, onS
   );
 }
 
-function AvatarCropModal({ pendingAvatar, saving, onCancel, onApply }) {
+function AvatarCropModal({ pendingAvatar, crop, saving, onCropChange, onImageLoad, onCancel, onApply }) {
+  const imageRef = useRef(null);
+  const dragRef = useRef(null);
+  const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    if (!pendingAvatar) return undefined;
+
+    const updateDisplaySize = () => {
+      const image = imageRef.current;
+      if (!image) return;
+
+      setDisplaySize({
+        width: image.clientWidth,
+        height: image.clientHeight
+      });
+    };
+
+    updateDisplaySize();
+    window.addEventListener('resize', updateDisplaySize);
+
+    return () => window.removeEventListener('resize', updateDisplaySize);
+  }, [pendingAvatar]);
+
   if (!pendingAvatar) return null;
+
+  const hasImageDimensions = pendingAvatar.naturalWidth > 0 && pendingAvatar.naturalHeight > 0;
+  const scale = hasImageDimensions && displaySize.width
+    ? displaySize.width / pendingAvatar.naturalWidth
+    : 1;
+  const safeCrop = clampAvatarCrop(crop, pendingAvatar.naturalWidth, pendingAvatar.naturalHeight);
+  const cropBox = {
+    left: safeCrop.x * scale,
+    top: safeCrop.y * scale,
+    size: safeCrop.size * scale
+  };
+  const canApply = hasImageDimensions && safeCrop.size > 0 && !saving;
+  const cropBackground = {
+    backgroundColor: '#f8fafc',
+    backgroundImage: `
+      linear-gradient(45deg, #d1d5db 25%, transparent 25%),
+      linear-gradient(-45deg, #d1d5db 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #d1d5db 75%),
+      linear-gradient(-45deg, transparent 75%, #d1d5db 75%)
+    `,
+    backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0',
+    backgroundSize: '16px 16px'
+  };
+
+  const stopInteraction = (event) => {
+    if (dragRef.current && event.currentTarget.hasPointerCapture?.(dragRef.current.pointerId)) {
+      event.currentTarget.releasePointerCapture(dragRef.current.pointerId);
+    }
+
+    dragRef.current = null;
+  };
+
+  const startInteraction = (event, type) => {
+    if (!hasImageDimensions || !scale) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+
+    dragRef.current = {
+      type,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      crop: safeCrop,
+      scale
+    };
+  };
+
+  const handlePointerMove = (event) => {
+    if (!dragRef.current) return;
+
+    const drag = dragRef.current;
+    const deltaX = (event.clientX - drag.startX) / drag.scale;
+    const deltaY = (event.clientY - drag.startY) / drag.scale;
+
+    if (drag.type === 'move') {
+      onCropChange({
+        x: drag.crop.x + deltaX,
+        y: drag.crop.y + deltaY
+      });
+      return;
+    }
+
+    const resizeAmountByType = {
+      'resize-nw': Math.max(-deltaX, -deltaY),
+      'resize-ne': Math.max(deltaX, -deltaY),
+      'resize-se': Math.max(deltaX, deltaY),
+      'resize-sw': Math.max(-deltaX, deltaY)
+    };
+    const amount = resizeAmountByType[drag.type] || 0;
+    const nextCrop = { ...drag.crop, size: drag.crop.size + amount };
+
+    if (drag.type === 'resize-nw') {
+      nextCrop.x = drag.crop.x - amount;
+      nextCrop.y = drag.crop.y - amount;
+    }
+
+    if (drag.type === 'resize-ne') {
+      nextCrop.y = drag.crop.y - amount;
+    }
+
+    if (drag.type === 'resize-sw') {
+      nextCrop.x = drag.crop.x - amount;
+    }
+
+    onCropChange(nextCrop);
+  };
+
+  const handleImageLoad = (event) => {
+    const image = event.currentTarget;
+    onImageLoad(image.naturalWidth, image.naturalHeight);
+    window.requestAnimationFrame(() => {
+      setDisplaySize({
+        width: image.clientWidth,
+        height: image.clientHeight
+      });
+    });
+  };
+
+  const handleKeyDown = (event) => {
+    if (!hasImageDimensions) return;
+
+    const moveStep = event.shiftKey ? 20 : 6;
+    const resizeStep = event.shiftKey ? 24 : 8;
+
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      onCropChange({ x: safeCrop.x - moveStep });
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      onCropChange({ x: safeCrop.x + moveStep });
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      onCropChange({ y: safeCrop.y - moveStep });
+    } else if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      onCropChange({ y: safeCrop.y + moveStep });
+    } else if (event.key === '+' || event.key === '=') {
+      event.preventDefault();
+      onCropChange({ size: safeCrop.size + resizeStep });
+    } else if (event.key === '-' || event.key === '_') {
+      event.preventDefault();
+      onCropChange({ size: safeCrop.size - resizeStep });
+    }
+  };
+
+  const handleClasses = 'absolute h-4 w-4 rounded-full border-2 border-white bg-primary-600 shadow-md';
 
   return (
     <div
@@ -622,45 +828,90 @@ function AvatarCropModal({ pendingAvatar, saving, onCancel, onApply }) {
       aria-modal="true"
       aria-labelledby="avatar-crop-title"
     >
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-900">
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <div>
-            <h2 id="avatar-crop-title" className="text-xl font-bold text-gray-950 dark:text-white">Square crop profile image</h2>
-            <p className="mt-1 text-sm text-gray-500">Your image will be cropped as a centered square before upload.</p>
-          </div>
+      <div className="w-full max-w-4xl overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-900">
+        <div className="flex items-center justify-between gap-4 bg-gradient-to-r from-primary-600 to-violet-600 px-5 py-4 text-white">
+          <h2 id="avatar-crop-title" className="text-lg font-bold sm:text-xl">Perfect Your Profile</h2>
           <button
             type="button"
             onClick={onCancel}
-            className="flex h-10 w-10 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-white/80 transition-colors hover:bg-white/10 hover:text-white"
             aria-label="Close crop profile image"
           >
-            <HiOutlineX size={20} />
+            <HiOutlineX size={24} />
           </button>
         </div>
 
-        <div
-          className="relative mx-auto overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800"
-          style={{ width: SQUARE_CROP_PREVIEW_SIZE, height: SQUARE_CROP_PREVIEW_SIZE }}
-        >
-          <img
-            src={pendingAvatar.url}
-            alt="Square profile crop preview"
-            className="h-full w-full object-cover object-center"
-          />
-          <div className="pointer-events-none absolute inset-0 rounded-xl ring-2 ring-primary-500/80 ring-offset-2 ring-offset-white dark:ring-offset-gray-900" />
-        </div>
+        <div className="p-4 sm:p-6">
+          <div
+            className="overflow-auto rounded-xl border border-gray-200 p-4 dark:border-gray-800"
+            style={cropBackground}
+          >
+            <div className="relative mx-auto w-fit max-w-full">
+              <img
+                ref={imageRef}
+                src={pendingAvatar.url}
+                alt="Manual profile crop preview"
+                draggable={false}
+                onLoad={handleImageLoad}
+                className="block max-h-[55vh] max-w-full select-none rounded-lg object-contain"
+              />
 
-        <p className="mt-4 text-center text-sm text-gray-500">
-          The uploaded avatar will match this square preview.
-        </p>
+              {hasImageDimensions && displaySize.width > 0 && (
+                <div
+                  role="application"
+                  tabIndex={0}
+                  aria-label="Move and resize square crop area"
+                  className="absolute cursor-move touch-none border-2 border-primary-500 bg-primary-500/10 outline-none ring-1 ring-white/80 focus:ring-2 focus:ring-primary-600"
+                  style={{
+                    left: cropBox.left,
+                    top: cropBox.top,
+                    width: cropBox.size,
+                    height: cropBox.size,
+                    boxShadow: '0 0 0 9999px rgba(15, 23, 42, 0.46)'
+                  }}
+                  onPointerDown={event => startInteraction(event, 'move')}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={stopInteraction}
+                  onPointerCancel={stopInteraction}
+                  onKeyDown={handleKeyDown}
+                >
+                  <span className="pointer-events-none absolute left-1/3 top-0 h-full border-l border-white/50" />
+                  <span className="pointer-events-none absolute left-2/3 top-0 h-full border-l border-white/50" />
+                  <span className="pointer-events-none absolute left-0 top-1/3 w-full border-t border-white/50" />
+                  <span className="pointer-events-none absolute left-0 top-2/3 w-full border-t border-white/50" />
+                  <span
+                    className={`${handleClasses} -left-2 -top-2 cursor-nwse-resize`}
+                    onPointerDown={event => startInteraction(event, 'resize-nw')}
+                  />
+                  <span
+                    className={`${handleClasses} -right-2 -top-2 cursor-nesw-resize`}
+                    onPointerDown={event => startInteraction(event, 'resize-ne')}
+                  />
+                  <span
+                    className={`${handleClasses} -bottom-2 -right-2 cursor-nwse-resize`}
+                    onPointerDown={event => startInteraction(event, 'resize-se')}
+                  />
+                  <span
+                    className={`${handleClasses} -bottom-2 -left-2 cursor-nesw-resize`}
+                    onPointerDown={event => startInteraction(event, 'resize-sw')}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
 
-        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onCancel} className="btn-secondary">
-            Cancel
-          </button>
-          <button type="button" onClick={onApply} disabled={saving} className="btn-primary">
-            {saving ? 'Uploading...' : 'Upload Square Image'}
-          </button>
+          <p className="mt-3 text-sm text-gray-500">
+            Drag the square to reposition it, or drag a corner to resize the crop area.
+          </p>
+
+          <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <button type="button" onClick={onCancel} className="btn-secondary">
+              Cancel
+            </button>
+            <button type="button" onClick={onApply} disabled={!canApply} className="btn-primary">
+              {saving ? 'Uploading...' : 'Apply Changes'}
+            </button>
+          </div>
         </div>
       </div>
     </div>
