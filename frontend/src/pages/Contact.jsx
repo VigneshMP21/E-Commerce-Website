@@ -1,20 +1,33 @@
 import { useState } from 'react';
 import { HiOutlineMail, HiOutlinePhone, HiOutlineLocationMarker, HiOutlineClock, HiOutlinePaperAirplane } from 'react-icons/hi';
 import toast from 'react-hot-toast';
+import api from '../services/api';
+
+const CONTACT_EMAIL = 'mpvignesh2107@gmail.com';
 
 export default function Contact() {
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' });
+  const [sending, setSending] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    toast.success('Message sent! We will get back to you soon.');
-    setForm({ name: '', email: '', subject: '', message: '' });
+    setSending(true);
+
+    try {
+      await api.post('/contact', form);
+      toast.success('Message sent successfully.');
+      setForm({ name: '', email: '', subject: '', message: '' });
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Unable to send message. Please try again.');
+    } finally {
+      setSending(false);
+    }
   };
 
   const contactInfo = [
-    { icon: HiOutlineMail, label: 'Email', value: 'support@vshop.com' },
-    { icon: HiOutlinePhone, label: 'Phone', value: '+91 1800-V-SHOP' },
-    { icon: HiOutlineLocationMarker, label: 'Address', value: 'Mumbai, Maharashtra, India' },
+    { icon: HiOutlineMail, label: 'Email', value: CONTACT_EMAIL },
+    { icon: HiOutlinePhone, label: 'Phone', value: '+91 9393211095' },
+    { icon: HiOutlineLocationMarker, label: 'Address', value: 'Bazar Street, Chinthala Pattadai, Nagari - 517590, Chittoor, Andhra Pradesh' },
     { icon: HiOutlineClock, label: 'Hours', value: 'Mon-Sat, 9AM-6PM IST' }
   ];
 
@@ -47,8 +60,8 @@ export default function Contact() {
           </div>
           <input className="input-field" placeholder="Subject" value={form.subject} onChange={e => setForm({...form, subject: e.target.value})} required />
           <textarea className="input-field min-h-[120px]" placeholder="Your Message..." value={form.message} onChange={e => setForm({...form, message: e.target.value})} required />
-          <button type="submit" className="btn-primary w-full">
-            <HiOutlinePaperAirplane size={18} className="mr-2" /> Send Message
+          <button type="submit" className="btn-primary w-full disabled:cursor-not-allowed disabled:opacity-70" disabled={sending}>
+            <HiOutlinePaperAirplane size={18} className="mr-2" /> {sending ? 'Sending...' : 'Send Message'}
           </button>
         </form>
       </div>
