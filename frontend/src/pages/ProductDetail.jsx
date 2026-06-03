@@ -225,6 +225,9 @@ export default function ProductDetail() {
   const reviewPreviewImages = reviewImages.slice(0, 5);
   const hiddenReviewImageCount = Math.max(reviewImages.length - reviewPreviewImages.length, 0);
   const canShowMoreReviews = visibleReviewCount < reviews.length;
+  const shortDescription = product.short_description || product.shortDescription || '';
+  const productSummary = shortDescription || truncateText(product.description, 180);
+  const productDescription = product.description || '';
 
   return (
     <div className="container-custom py-6 md:py-8">
@@ -308,8 +311,10 @@ export default function ProductDetail() {
             )}
           </div>
 
-          {/* Description */}
-          <p className="text-gray-600 dark:text-gray-400 leading-relaxed">{product.description}</p>
+          {/* Short description */}
+          {productSummary && (
+            <p className="text-gray-600 dark:text-gray-400 leading-relaxed">{productSummary}</p>
+          )}
 
           {/* Quantity */}
           <div className="flex items-center gap-4">
@@ -362,6 +367,21 @@ export default function ProductDetail() {
           </div>
         </div>
       </div>
+
+      {/* Product details */}
+      {productDescription && (
+        <section className="mt-12 border-t border-gray-100 pt-10 dark:border-gray-800">
+          <div className="max-w-3xl">
+            <h2 className="text-2xl font-bold">Product Details</h2>
+            <div className="mt-5">
+              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Description
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-line">{productDescription}</p>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Reviews */}
       {reviews.length > 0 && (
