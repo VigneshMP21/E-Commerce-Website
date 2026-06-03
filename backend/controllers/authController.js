@@ -3,7 +3,14 @@ const crypto = require('crypto');
 const db = require('../config/db');
 const { generateToken, generateRefreshToken, verifyRefreshToken } = require('../utils/jwt');
 const { AppError } = require('../utils/errors');
-const { sendWelcomeEmail, sendResetPasswordEmail } = require('../utils/email');
+const {
+  sendWelcomeEmail,
+  sendPasswordResetOtpEmail,
+  sendPasswordResetSuccessEmail
+} = require('../utils/email');
+const { uploadImageToSupabase } = require('../utils/storage');
+
+const generateOtp = () => crypto.randomInt(100000, 1000000).toString();
 
 const register = async (req, res, next) => {
   try {
@@ -136,7 +143,14 @@ const updateProfile = async (req, res, next) => {
     const nextName = typeof name === 'string' && name.trim() ? name.trim() : currentUser.name;
     const nextEmail = typeof email === 'string' && email.trim() ? email.trim().toLowerCase() : currentUser.email;
     const nextPhone = typeof phone === 'string' ? (phone.trim() || null) : currentUser.phone;
-    const nextAvatar = typeof avatar === 'string' ? (avatar.trim() || null) : currentUser.avatar;
+    let nextAvatar = typeof avatar === 'string' ? (avatar.trim() || null) : currentUser.avatar;
+
+    if (req.file) {
+      const uploadedAvatar = await uploadImageToSupabase(req.file, {
+        folder: `avatars/${req.user.id}`
+      });
+      nextAvatar = uploadedAvatar.url;
+    }
 
     if (nextEmail !== currentUser.email) {
       const existingEmail = await db.query(
@@ -207,24 +221,64 @@ const changePassword = async (req, res, next) => {
 const forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
+    const normalizedEmail = email.trim().toLowerCase();
 
-    const users = await db.query('SELECT id, name FROM users WHERE email = $1', [email]);
+    const users = await db.query(
+      'SELECT id, name, email FROM users WHERE LOWER(email) = LOWER($1)',
+      [normalizedEmail]
+    );
     if (!users.length) {
-      return res.json({ success: true, message: 'If the email exists, a reset link has been sent' });
+      throw new AppError('Email is not registered', 404);
+    }
+
+    const otp = generateOtp();
+    const expires = new Date(Date.now() + 10 * 60 * 1000);
+
+    await db.query(
+      'UPDATE users SET otp = $1, otp_expires = $2, reset_token = NULL, reset_token_expires = NULL WHERE id = $3',
+      [otp, expires, users[0].id]
+    );
+
+    const sent = await sendPasswordResetOtpEmail(users[0].email, otp);
+    if (!sent) {
+      throw new AppError('Unable to send OTP email. Please try again later.', 500);
+    }
+
+    res.json({ success: true, message: 'OTP sent to your email' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const verifyResetOtp = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedOtp = String(otp).trim();
+
+    const users = await db.query(
+      'SELECT id FROM users WHERE LOWER(email) = LOWER($1) AND otp = $2 AND otp_expires > NOW()',
+      [normalizedEmail, normalizedOtp]
+    );
+
+    if (!users.length) {
+      throw new AppError('Invalid or expired OTP', 400);
     }
 
     const resetToken = crypto.randomBytes(32).toString('hex');
     const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-    const expires = new Date(Date.now() + 3600000);
+    const expires = new Date(Date.now() + 15 * 60 * 1000);
 
     await db.query(
-      'UPDATE users SET reset_token = $1, reset_token_expires = $2 WHERE id = $3',
+      'UPDATE users SET reset_token = $1, reset_token_expires = $2, otp = NULL, otp_expires = NULL WHERE id = $3',
       [hashedToken, expires, users[0].id]
     );
 
-    await sendResetPasswordEmail(email, resetToken);
-
-    res.json({ success: true, message: 'If the email exists, a reset link has been sent' });
+    res.json({
+      success: true,
+      message: 'OTP verified successfully',
+      data: { resetToken }
+    });
   } catch (error) {
     next(error);
   }
@@ -238,7 +292,7 @@ const resetPassword = async (req, res, next) => {
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
     const users = await db.query(
-      'SELECT id FROM users WHERE reset_token = $1 AND reset_token_expires > NOW()',
+      'SELECT id, name, email FROM users WHERE reset_token = $1 AND reset_token_expires > NOW()',
       [hashedToken]
     );
 
@@ -248,9 +302,11 @@ const resetPassword = async (req, res, next) => {
 
     const hashedPassword = await bcrypt.hash(password, 12);
     await db.query(
-      'UPDATE users SET password = $1, reset_token = NULL, reset_token_expires = NULL WHERE id = $2',
+      'UPDATE users SET password = $1, reset_token = NULL, reset_token_expires = NULL, otp = NULL, otp_expires = NULL WHERE id = $2',
       [hashedPassword, users[0].id]
     );
+
+    await sendPasswordResetSuccessEmail(users[0].email, users[0].name);
 
     res.json({ success: true, message: 'Password reset successfully' });
   } catch (error) {
@@ -290,5 +346,5 @@ const googleAuth = async (req, res, next) => {
 module.exports = {
   register, login, refreshTokenHandler,
   getProfile, updateProfile, changePassword,
-  forgotPassword, resetPassword, googleAuth
+  forgotPassword, verifyResetOtp, resetPassword, googleAuth
 };

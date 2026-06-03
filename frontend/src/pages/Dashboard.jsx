@@ -11,6 +11,7 @@ import {
   HiOutlinePhotograph,
   HiOutlineSave,
   HiOutlineShoppingBag,
+  HiOutlineUpload,
   HiOutlineUser,
   HiOutlineX
 } from 'react-icons/hi';
@@ -20,8 +21,12 @@ import { useWishlist } from '../context/WishlistContext';
 import api from '../services/api';
 import { formatDate, formatPrice } from '../utils/helpers';
 
+const MAX_PROFILE_IMAGE_SIZE = 5 * 1024 * 1024;
+
 const getDefaultProfileForm = (user, phone = '') => ({
   avatar: user?.avatar || '',
+  avatarFile: null,
+  avatarPreview: '',
   name: user?.name || '',
   email: user?.email || '',
   phone: user?.phone || phone || ''
@@ -69,6 +74,15 @@ export default function Dashboard() {
     }
   }, [user, defaultAddress, editingProfile]);
 
+  useEffect(() => {
+    const previewUrl = profileForm.avatarPreview;
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [profileForm.avatarPreview]);
+
   const tabs = [
     { id: 'overview', label: 'Overview', icon: HiOutlineUser },
     { id: 'orders', label: 'Orders', icon: HiOutlineShoppingBag },
@@ -101,6 +115,32 @@ export default function Dashboard() {
     setProfileForm(current => ({ ...current, [field]: value }));
   };
 
+  const handleProfileImageChange = (file) => {
+    if (!file) return;
+
+    if (!file.type?.startsWith('image/')) {
+      toast.error('Please upload an image file');
+      return;
+    }
+
+    if (file.size > MAX_PROFILE_IMAGE_SIZE) {
+      toast.error('Profile image must be 5 MB or smaller');
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    setProfileForm(current => ({
+      ...current,
+      avatarFile: file,
+      avatarPreview: previewUrl
+    }));
+  };
+
+  const cancelProfileEdit = () => {
+    setProfileForm(getDefaultProfileForm(user, defaultAddress?.phone));
+    setEditingProfile(false);
+  };
+
   const updatePasswordForm = (field, value) => {
     setPasswordForm(current => ({ ...current, [field]: value }));
   };
@@ -120,14 +160,33 @@ export default function Dashboard() {
 
     setProfileSaving(true);
     try {
-      const payload = {
+      const hasAvatarFile = profileForm.avatarFile instanceof File;
+      let payload;
+
+      if (hasAvatarFile) {
+        payload = new FormData();
+        payload.append('name', profileForm.name.trim());
+        payload.append('email', profileForm.email.trim());
+        payload.append('phone', profileForm.phone.trim());
+        payload.append('avatarImage', profileForm.avatarFile);
+      } else {
+        payload = {
+          name: profileForm.name.trim(),
+          email: profileForm.email.trim(),
+          phone: profileForm.phone.trim() || null,
+          avatar: profileForm.avatar.trim() || null
+        };
+      }
+
+      const res = await api.put('/auth/profile', payload);
+      const fallbackUser = {
+        ...user,
         name: profileForm.name.trim(),
         email: profileForm.email.trim(),
         phone: profileForm.phone.trim() || null,
-        avatar: profileForm.avatar.trim() || null
+        avatar: profileForm.avatar.trim() || user?.avatar || null
       };
-      const res = await api.put('/auth/profile', payload);
-      const updatedUser = res.data.data || { ...user, ...payload };
+      const updatedUser = res.data.data || fallbackUser;
       setUser?.(updatedUser);
       setEditingProfile(false);
       toast.success(res.data.message || 'Profile updated');
@@ -218,10 +277,8 @@ export default function Dashboard() {
                   form={profileForm}
                   saving={profileSaving}
                   onChange={updateProfileForm}
-                  onCancel={() => {
-                    setProfileForm(getDefaultProfileForm(user, defaultAddress?.phone));
-                    setEditingProfile(false);
-                  }}
+                  onAvatarChange={handleProfileImageChange}
+                  onCancel={cancelProfileEdit}
                   onSubmit={handleProfileSave}
                 />
               ) : (
@@ -352,7 +409,9 @@ function ProfileCard({ user, phone, onEdit }) {
   );
 }
 
-function ProfileEditForm({ form, saving, onChange, onCancel, onSubmit }) {
+function ProfileEditForm({ form, saving, onChange, onAvatarChange, onCancel, onSubmit }) {
+  const avatarPreview = form.avatarPreview || form.avatar;
+
   return (
     <form onSubmit={onSubmit} className="card p-6">
       <div className="mb-6 flex items-center justify-between gap-4">
@@ -372,28 +431,38 @@ function ProfileEditForm({ form, saving, onChange, onCancel, onSubmit }) {
 
       <div className="grid gap-5 md:grid-cols-[140px_minmax(0,1fr)]">
         <div className="flex flex-col items-center gap-3">
-          {form.avatar ? (
-            <img src={form.avatar} alt="Profile preview" className="h-24 w-24 rounded-full object-cover bg-gray-100" />
-          ) : (
-            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-primary-100 text-primary-600 dark:bg-primary-900">
-              <HiOutlinePhotograph size={34} />
-            </div>
-          )}
+          <label
+            className="group relative block h-24 w-24 cursor-pointer overflow-hidden rounded-full bg-primary-100 text-primary-600 ring-2 ring-transparent transition hover:ring-primary-300 dark:bg-primary-900"
+            aria-label="Upload profile image"
+            title="Upload profile image"
+          >
+            <input
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={event => {
+                onAvatarChange(event.target.files?.[0]);
+                event.target.value = '';
+              }}
+            />
+            {avatarPreview ? (
+              <img src={avatarPreview} alt="Profile preview" className="h-full w-full object-cover" />
+            ) : (
+              <span className="flex h-full w-full items-center justify-center">
+                <HiOutlinePhotograph size={34} />
+              </span>
+            )}
+            <span className="absolute inset-0 flex items-center justify-center bg-black/45 text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+              <HiOutlineUpload size={24} />
+            </span>
+            <span className="absolute bottom-1 right-1 flex h-7 w-7 items-center justify-center rounded-full bg-white text-primary-600 shadow-md dark:bg-gray-900">
+              <HiOutlineUpload size={15} />
+            </span>
+          </label>
           <p className="text-xs text-gray-500 text-center">Profile image</p>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <label className="md:col-span-2">
-            <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">Profile Image URL</span>
-            <input
-              type="url"
-              value={form.avatar}
-              onChange={event => onChange('avatar', event.target.value)}
-              placeholder="https://example.com/profile.jpg"
-              className="input-field"
-            />
-          </label>
-
           <label>
             <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-200">Name</span>
             <div className="relative">

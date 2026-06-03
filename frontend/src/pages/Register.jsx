@@ -35,7 +35,7 @@ export default function Register() {
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
         <div className="card p-8">
           <div className="text-center mb-8">
-            <img src={logo} alt="V Shop logo" className="w-12 h-12 rounded-xl object-cover mx-auto mb-4" />
+            <img src={logo} alt="V Shop logo" className="w-40 h-24 rounded-xl object-cover mx-auto mb-3" />
             <h1 className="text-2xl font-bold">Create account</h1>
             <p className="text-gray-500 text-sm mt-1">Join V Shop today</p>
           </div>

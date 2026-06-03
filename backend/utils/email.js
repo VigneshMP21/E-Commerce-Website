@@ -59,6 +59,37 @@ const sendResetPasswordEmail = async (email, resetToken) => {
   });
 };
 
+const sendPasswordResetOtpEmail = async (email, otp) => {
+  return sendEmail({
+    to: email,
+    subject: 'Password Reset OTP - V Shop',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #4f46e5;">Verify Your Password Reset</h1>
+        <p>Use the OTP below to verify your password reset request.</p>
+        <div style="font-size: 32px; font-weight: 700; letter-spacing: 6px; color: #111827; margin: 24px 0;">${otp}</div>
+        <p style="color: #6b7280;">This OTP will expire in 10 minutes.</p>
+        <p style="color: #6b7280;">If you didn't request this, please ignore this email.</p>
+      </div>
+    `
+  });
+};
+
+const sendPasswordResetSuccessEmail = async (email, name = 'there') => {
+  return sendEmail({
+    to: email,
+    subject: 'Password Reset Successful - V Shop',
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1 style="color: #4f46e5;">Password Reset Successful</h1>
+        <p>Hi ${name},</p>
+        <p>Your V Shop password has been reset successfully.</p>
+        <p style="color: #6b7280;">If you did not make this change, please contact support immediately.</p>
+      </div>
+    `
+  });
+};
+
 const sendOrderConfirmation = async (email, order) => {
   return sendEmail({
     to: email,
@@ -74,4 +105,11 @@ const sendOrderConfirmation = async (email, order) => {
   });
 };
 
-module.exports = { sendEmail, sendWelcomeEmail, sendResetPasswordEmail, sendOrderConfirmation };
+module.exports = {
+  sendEmail,
+  sendWelcomeEmail,
+  sendResetPasswordEmail,
+  sendPasswordResetOtpEmail,
+  sendPasswordResetSuccessEmail,
+  sendOrderConfirmation
+};
