@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   HiOutlineHeart,
@@ -22,6 +22,85 @@ import api from '../services/api';
 import { formatDate, formatPrice } from '../utils/helpers';
 
 const MAX_PROFILE_IMAGE_SIZE = 5 * 1024 * 1024;
+const CROP_FRAME_SIZE = 280;
+const CROPPED_AVATAR_SIZE = 512;
+const CROPPED_AVATAR_TYPE = 'image/jpeg';
+const DEFAULT_AVATAR_CROP = { x: 50, y: 50, zoom: 1 };
+
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+const getCropImageLayout = (naturalWidth, naturalHeight, zoom = 1) => {
+  if (!naturalWidth || !naturalHeight) {
+    return { width: CROP_FRAME_SIZE, height: CROP_FRAME_SIZE };
+  }
+
+  const ratio = naturalWidth / naturalHeight;
+  const baseWidth = ratio >= 1 ? CROP_FRAME_SIZE * ratio : CROP_FRAME_SIZE;
+  const baseHeight = ratio >= 1 ? CROP_FRAME_SIZE : CROP_FRAME_SIZE / ratio;
+
+  return {
+    width: baseWidth * zoom,
+    height: baseHeight * zoom
+  };
+};
+
+const clampCropCenter = (crop, naturalWidth, naturalHeight) => {
+  const nextZoom = clamp(Number(crop.zoom) || 1, 1, 3);
+  const layout = getCropImageLayout(naturalWidth, naturalHeight, nextZoom);
+  const xLimit = layout.width > CROP_FRAME_SIZE ? (CROP_FRAME_SIZE / 2 / layout.width) * 100 : 50;
+  const yLimit = layout.height > CROP_FRAME_SIZE ? (CROP_FRAME_SIZE / 2 / layout.height) * 100 : 50;
+
+  return {
+    x: clamp(Number(crop.x) || 50, xLimit, 100 - xLimit),
+    y: clamp(Number(crop.y) || 50, yLimit, 100 - yLimit),
+    zoom: nextZoom
+  };
+};
+
+const loadImage = (src) => new Promise((resolve, reject) => {
+  const image = new Image();
+  image.onload = () => resolve(image);
+  image.onerror = reject;
+  image.src = src;
+});
+
+const createCroppedAvatarFile = async (file, imageUrl, crop) => {
+  const image = await loadImage(imageUrl);
+  const safeCrop = clampCropCenter(crop, image.naturalWidth, image.naturalHeight);
+  const layout = getCropImageLayout(image.naturalWidth, image.naturalHeight, safeCrop.zoom);
+  const left = CROP_FRAME_SIZE / 2 - (safeCrop.x / 100) * layout.width;
+  const top = CROP_FRAME_SIZE / 2 - (safeCrop.y / 100) * layout.height;
+  const sourceX = clamp((0 - left) / layout.width * image.naturalWidth, 0, image.naturalWidth - 1);
+  const sourceY = clamp((0 - top) / layout.height * image.naturalHeight, 0, image.naturalHeight - 1);
+  const sourceWidth = clamp(CROP_FRAME_SIZE / layout.width * image.naturalWidth, 1, image.naturalWidth - sourceX);
+  const sourceHeight = clamp(CROP_FRAME_SIZE / layout.height * image.naturalHeight, 1, image.naturalHeight - sourceY);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = CROPPED_AVATAR_SIZE;
+  canvas.height = CROPPED_AVATAR_SIZE;
+  const context = canvas.getContext('2d');
+  context.drawImage(
+    image,
+    sourceX,
+    sourceY,
+    sourceWidth,
+    sourceHeight,
+    0,
+    0,
+    CROPPED_AVATAR_SIZE,
+    CROPPED_AVATAR_SIZE
+  );
+
+  const blob = await new Promise((resolve, reject) => {
+    canvas.toBlob(result => {
+      if (result) resolve(result);
+      else reject(new Error('Unable to crop image'));
+    }, CROPPED_AVATAR_TYPE, 0.92);
+  });
+
+  const fileName = `${file.name.replace(/\.[^.]+$/, '') || 'profile'}-cropped.jpg`;
+  return new File([blob], fileName, { type: CROPPED_AVATAR_TYPE });
+};
 
 const getDefaultProfileForm = (user, phone = '') => ({
   avatar: user?.avatar || '',
@@ -43,6 +122,9 @@ export default function Dashboard() {
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileForm, setProfileForm] = useState(getDefaultProfileForm(user));
+  const [pendingAvatar, setPendingAvatar] = useState(null);
+  const [avatarCrop, setAvatarCrop] = useState(DEFAULT_AVATAR_CROP);
+  const [avatarCropSaving, setAvatarCropSaving] = useState(false);
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
@@ -82,6 +164,15 @@ export default function Dashboard() {
       }
     };
   }, [profileForm.avatarPreview]);
+
+  useEffect(() => {
+    const pendingUrl = pendingAvatar?.url;
+    return () => {
+      if (pendingUrl) {
+        URL.revokeObjectURL(pendingUrl);
+      }
+    };
+  }, [pendingAvatar?.url]);
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: HiOutlineUser },
@@ -128,15 +219,66 @@ export default function Dashboard() {
       return;
     }
 
-    const previewUrl = URL.createObjectURL(file);
-    setProfileForm(current => ({
-      ...current,
-      avatarFile: file,
-      avatarPreview: previewUrl
-    }));
+    setAvatarCrop(DEFAULT_AVATAR_CROP);
+    setPendingAvatar({
+      file,
+      url: URL.createObjectURL(file),
+      naturalWidth: 0,
+      naturalHeight: 0
+    });
+  };
+
+  const updateAvatarCrop = (nextCrop) => {
+    setAvatarCrop(current => clampCropCenter(
+      { ...current, ...nextCrop },
+      pendingAvatar?.naturalWidth,
+      pendingAvatar?.naturalHeight
+    ));
+  };
+
+  const updatePendingAvatarDimensions = (naturalWidth, naturalHeight) => {
+    setPendingAvatar(current => current ? { ...current, naturalWidth, naturalHeight } : current);
+    setAvatarCrop(current => clampCropCenter(current, naturalWidth, naturalHeight));
+  };
+
+  const closeAvatarCrop = () => {
+    setPendingAvatar(null);
+    setAvatarCrop(DEFAULT_AVATAR_CROP);
+    setAvatarCropSaving(false);
+  };
+
+  const applyAvatarCrop = async () => {
+    if (!pendingAvatar) return;
+
+    setAvatarCropSaving(true);
+    try {
+      const croppedFile = await createCroppedAvatarFile(pendingAvatar.file, pendingAvatar.url, avatarCrop);
+      const payload = new FormData();
+      payload.append('avatarImage', croppedFile);
+
+      const res = await api.put('/auth/profile', payload);
+      const updatedUser = res.data.data || user;
+      const nextAvatar = updatedUser?.avatar || user?.avatar || '';
+
+      setProfileForm(current => ({
+        ...current,
+        avatar: nextAvatar,
+        avatarFile: null,
+        avatarPreview: ''
+      }));
+      setUser?.(updatedUser);
+      setPendingAvatar(null);
+      setAvatarCrop(DEFAULT_AVATAR_CROP);
+      toast.success(res.data.message || 'Profile image uploaded');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Unable to upload cropped image');
+    } finally {
+      setAvatarCropSaving(false);
+    }
   };
 
   const cancelProfileEdit = () => {
+    closeAvatarCrop();
     setProfileForm(getDefaultProfileForm(user, defaultAddress?.phone));
     setEditingProfile(false);
   };
@@ -236,141 +378,153 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="container-custom py-6 md:py-8">
-      <h1 className="text-2xl md:text-3xl font-bold mb-8">My Account</h1>
+    <>
+      <div className="container-custom py-6 md:py-8">
+        <h1 className="text-2xl md:text-3xl font-bold mb-8">My Account</h1>
 
-      <div className="grid md:grid-cols-4 gap-8">
-        <div className="md:col-span-1">
-          <div className="card p-4 space-y-1">
-            {tabs.map(tab => (
+        <div className="grid md:grid-cols-4 gap-8">
+          <div className="md:col-span-1">
+            <div className="card p-4 space-y-1">
+              {tabs.map(tab => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
+                    activeTab === tab.id
+                      ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-600'
+                      : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                  }`}
+                >
+                  <tab.icon size={18} />
+                  {tab.label}
+                </button>
+              ))}
+              <hr className="my-2 border-gray-100 dark:border-gray-800" />
               <button
-                key={tab.id}
                 type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
-                  activeTab === tab.id
-                    ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-600'
-                    : 'hover:bg-gray-50 dark:hover:bg-gray-800'
-                }`}
+                onClick={handleLogout}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
               >
-                <tab.icon size={18} />
-                {tab.label}
+                <HiOutlineLogout size={18} />
+                Logout
               </button>
-            ))}
-            <hr className="my-2 border-gray-100 dark:border-gray-800" />
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-            >
-              <HiOutlineLogout size={18} />
-              Logout
-            </button>
+            </div>
+          </div>
+
+          <div className="md:col-span-3">
+            {activeTab === 'overview' && (
+              <div className="space-y-6">
+                {editingProfile ? (
+                  <ProfileEditForm
+                    form={profileForm}
+                    saving={profileSaving}
+                    onChange={updateProfileForm}
+                    onAvatarChange={handleProfileImageChange}
+                    onCancel={cancelProfileEdit}
+                    onSubmit={handleProfileSave}
+                  />
+                ) : (
+                  <ProfileCard
+                    user={user}
+                    phone={profileForm.phone}
+                    onEdit={() => setEditingProfile(true)}
+                  />
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {stats.map(stat => (
+                    <div key={stat.label} className={`card p-4 ${stat.bg}`}>
+                      <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+                      <p className="text-sm text-gray-500">{stat.label}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'orders' && (
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg">Order History</h3>
+                {orders.length === 0 ? (
+                  <div className="card p-8 text-center">
+                    <HiOutlineShoppingBag size={40} className="mx-auto mb-3 text-gray-300" />
+                    <p className="text-gray-500">No orders yet</p>
+                    <Link to="/shop" className="btn-primary mt-4 inline-flex">Start Shopping</Link>
+                  </div>
+                ) : (
+                  orders.map(order => (
+                    <Link
+                      key={order.id}
+                      to={`/orders/${order.order_number}`}
+                      className="card p-4 flex items-center justify-between hover:shadow-md transition-shadow"
+                    >
+                      <div>
+                        <p className="font-medium text-sm">{order.order_number}</p>
+                        <p className="text-xs text-gray-500">{formatDate(order.created_at)}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold">{formatPrice(order.total_amount)}</p>
+                        <span className={`badge text-xs ${
+                          order.status === 'delivered'
+                            ? 'badge-success'
+                            : order.status === 'cancelled'
+                              ? 'badge-danger'
+                              : 'badge-warning'
+                        }`}
+                        >
+                          {order.status}
+                        </span>
+                      </div>
+                    </Link>
+                  ))
+                )}
+              </div>
+            )}
+
+            {activeTab === 'addresses' && (
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg">Saved Addresses</h3>
+                {addresses.length === 0 ? (
+                  <div className="card p-8 text-center">
+                    <HiOutlineLocationMarker size={40} className="mx-auto mb-3 text-gray-300" />
+                    <p className="text-gray-500">No addresses saved</p>
+                  </div>
+                ) : (
+                  addresses.map(addr => (
+                    <div key={addr.id} className="card p-4">
+                      <p className="font-medium">{addr.full_name}</p>
+                      <p className="text-sm text-gray-500">{addr.street}, {addr.city}, {addr.state} - {addr.zip_code}</p>
+                      <p className="text-sm text-gray-500">{addr.phone}</p>
+                      {addr.is_default && <span className="badge-primary text-xs mt-1">Default</span>}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {activeTab === 'password' && (
+              <ChangePasswordForm
+                form={passwordForm}
+                saving={passwordSaving}
+                onChange={updatePasswordForm}
+                onSubmit={handlePasswordChange}
+              />
+            )}
           </div>
         </div>
-
-        <div className="md:col-span-3">
-          {activeTab === 'overview' && (
-            <div className="space-y-6">
-              {editingProfile ? (
-                <ProfileEditForm
-                  form={profileForm}
-                  saving={profileSaving}
-                  onChange={updateProfileForm}
-                  onAvatarChange={handleProfileImageChange}
-                  onCancel={cancelProfileEdit}
-                  onSubmit={handleProfileSave}
-                />
-              ) : (
-                <ProfileCard
-                  user={user}
-                  phone={profileForm.phone}
-                  onEdit={() => setEditingProfile(true)}
-                />
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {stats.map(stat => (
-                  <div key={stat.label} className={`card p-4 ${stat.bg}`}>
-                    <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-                    <p className="text-sm text-gray-500">{stat.label}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'orders' && (
-            <div className="space-y-4">
-              <h3 className="font-semibold text-lg">Order History</h3>
-              {orders.length === 0 ? (
-                <div className="card p-8 text-center">
-                  <HiOutlineShoppingBag size={40} className="mx-auto mb-3 text-gray-300" />
-                  <p className="text-gray-500">No orders yet</p>
-                  <Link to="/shop" className="btn-primary mt-4 inline-flex">Start Shopping</Link>
-                </div>
-              ) : (
-                orders.map(order => (
-                  <Link
-                    key={order.id}
-                    to={`/orders/${order.order_number}`}
-                    className="card p-4 flex items-center justify-between hover:shadow-md transition-shadow"
-                  >
-                    <div>
-                      <p className="font-medium text-sm">{order.order_number}</p>
-                      <p className="text-xs text-gray-500">{formatDate(order.created_at)}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold">{formatPrice(order.total_amount)}</p>
-                      <span className={`badge text-xs ${
-                        order.status === 'delivered'
-                          ? 'badge-success'
-                          : order.status === 'cancelled'
-                            ? 'badge-danger'
-                            : 'badge-warning'
-                      }`}
-                      >
-                        {order.status}
-                      </span>
-                    </div>
-                  </Link>
-                ))
-              )}
-            </div>
-          )}
-
-          {activeTab === 'addresses' && (
-            <div className="space-y-4">
-              <h3 className="font-semibold text-lg">Saved Addresses</h3>
-              {addresses.length === 0 ? (
-                <div className="card p-8 text-center">
-                  <HiOutlineLocationMarker size={40} className="mx-auto mb-3 text-gray-300" />
-                  <p className="text-gray-500">No addresses saved</p>
-                </div>
-              ) : (
-                addresses.map(addr => (
-                  <div key={addr.id} className="card p-4">
-                    <p className="font-medium">{addr.full_name}</p>
-                    <p className="text-sm text-gray-500">{addr.street}, {addr.city}, {addr.state} - {addr.zip_code}</p>
-                    <p className="text-sm text-gray-500">{addr.phone}</p>
-                    {addr.is_default && <span className="badge-primary text-xs mt-1">Default</span>}
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-
-          {activeTab === 'password' && (
-            <ChangePasswordForm
-              form={passwordForm}
-              saving={passwordSaving}
-              onChange={updatePasswordForm}
-              onSubmit={handlePasswordChange}
-            />
-          )}
-        </div>
       </div>
-    </div>
+
+      <AvatarCropModal
+        pendingAvatar={pendingAvatar}
+        crop={avatarCrop}
+        saving={avatarCropSaving}
+        onCropChange={updateAvatarCrop}
+        onImageLoad={updatePendingAvatarDimensions}
+        onCancel={closeAvatarCrop}
+        onApply={applyAvatarCrop}
+      />
+    </>
   );
 }
 
@@ -513,6 +667,124 @@ function ProfileEditForm({ form, saving, onChange, onAvatarChange, onCancel, onS
         </button>
       </div>
     </form>
+  );
+}
+
+function AvatarCropModal({ pendingAvatar, crop, saving, onCropChange, onImageLoad, onCancel, onApply }) {
+  const dragRef = useRef(null);
+
+  if (!pendingAvatar) return null;
+
+  const safeCrop = clampCropCenter(crop, pendingAvatar.naturalWidth, pendingAvatar.naturalHeight);
+  const layout = getCropImageLayout(pendingAvatar.naturalWidth, pendingAvatar.naturalHeight, safeCrop.zoom);
+  const imageLeft = CROP_FRAME_SIZE / 2 - (safeCrop.x / 100) * layout.width;
+  const imageTop = CROP_FRAME_SIZE / 2 - (safeCrop.y / 100) * layout.height;
+
+  const stopDragging = (event) => {
+    if (dragRef.current && event.currentTarget.hasPointerCapture?.(dragRef.current.pointerId)) {
+      event.currentTarget.releasePointerCapture(dragRef.current.pointerId);
+    }
+    dragRef.current = null;
+  };
+
+  const handlePointerDown = (event) => {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      crop: safeCrop,
+      layout
+    };
+  };
+
+  const handlePointerMove = (event) => {
+    if (!dragRef.current) return;
+
+    const drag = dragRef.current;
+    const deltaX = event.clientX - drag.startX;
+    const deltaY = event.clientY - drag.startY;
+    onCropChange({
+      x: drag.crop.x - (deltaX / drag.layout.width) * 100,
+      y: drag.crop.y - (deltaY / drag.layout.height) * 100
+    });
+  };
+
+  const handleZoomChange = (event) => {
+    onCropChange({ zoom: Number(event.target.value) });
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[10000] flex items-center justify-center bg-gray-950/45 px-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="avatar-crop-title"
+    >
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-900">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <h2 id="avatar-crop-title" className="text-xl font-bold text-gray-950 dark:text-white">Crop profile image</h2>
+            <p className="mt-1 text-sm text-gray-500">Drag and zoom before uploading.</p>
+          </div>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex h-10 w-10 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+            aria-label="Close crop profile image"
+          >
+            <HiOutlineX size={20} />
+          </button>
+        </div>
+
+        <div
+          className="relative mx-auto cursor-grab touch-none overflow-hidden rounded-full bg-gray-100 active:cursor-grabbing dark:bg-gray-800"
+          style={{ width: CROP_FRAME_SIZE, height: CROP_FRAME_SIZE }}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={stopDragging}
+          onPointerCancel={stopDragging}
+        >
+          <img
+            src={pendingAvatar.url}
+            alt="Profile crop preview"
+            draggable={false}
+            onLoad={event => onImageLoad(event.currentTarget.naturalWidth, event.currentTarget.naturalHeight)}
+            className="absolute max-w-none select-none"
+            style={{
+              width: layout.width,
+              height: layout.height,
+              left: imageLeft,
+              top: imageTop
+            }}
+          />
+          <div className="pointer-events-none absolute inset-0 rounded-full ring-2 ring-white/90 dark:ring-gray-950/90" />
+        </div>
+
+        <label className="mt-5 block">
+          <span className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">Zoom</span>
+          <input
+            type="range"
+            min="1"
+            max="3"
+            step="0.01"
+            value={safeCrop.zoom}
+            onChange={handleZoomChange}
+            className="w-full accent-primary-600"
+          />
+        </label>
+
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button type="button" onClick={onCancel} className="btn-secondary">
+            Cancel
+          </button>
+          <button type="button" onClick={onApply} disabled={saving} className="btn-primary">
+            {saving ? 'Uploading...' : 'Upload Image'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom';
+import GlobalLoader from './components/common/GlobalLoader';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 import Home from './pages/Home';
@@ -51,6 +52,7 @@ export default function App() {
         </Routes>
       </main>
       <Footer />
+      <GlobalLoader />
     </div>
   );
 }

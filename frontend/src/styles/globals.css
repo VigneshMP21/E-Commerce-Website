@@ -190,4 +190,27 @@
     pointer-events: none;
     opacity: 0.06;
   }
+
+  .loading-typing-char {
+    display: inline-block;
+    opacity: 0;
+    transform: translateY(0.25rem);
+    animation: loadingTypeReveal 2.2s ease-in-out infinite;
+    animation-delay: var(--loader-char-delay);
+  }
+
+  @keyframes loadingTypeReveal {
+    0%, 12% {
+      opacity: 0;
+      transform: translateY(0.25rem);
+    }
+    22%, 82% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(0);
+    }
+  }
 }
