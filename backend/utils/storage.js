@@ -60,4 +60,37 @@ const uploadImageToSupabase = async (file, options = {}) => {
   };
 };
 
-module.exports = { uploadImageToSupabase };
+const getStoragePathFromPublicUrl = (publicUrl, bucket = DEFAULT_BUCKET) => {
+  if (!publicUrl) return null;
+
+  try {
+    const url = new URL(publicUrl);
+    const marker = `/storage/v1/object/public/${bucket}/`;
+    const markerIndex = url.pathname.indexOf(marker);
+
+    if (markerIndex === -1) return null;
+
+    return decodeURIComponent(url.pathname.slice(markerIndex + marker.length));
+  } catch {
+    return null;
+  }
+};
+
+const deleteImageFromSupabase = async (publicUrl, options = {}) => {
+  const bucket = options.bucket || DEFAULT_BUCKET;
+  const fileName = getStoragePathFromPublicUrl(publicUrl, bucket);
+
+  if (!fileName) return false;
+
+  const { error } = await supabase.storage
+    .from(bucket)
+    .remove([fileName]);
+
+  if (error) {
+    throw new AppError(`Supabase delete failed: ${error.message}`, 500);
+  }
+
+  return true;
+};
+
+module.exports = { uploadImageToSupabase, deleteImageFromSupabase };

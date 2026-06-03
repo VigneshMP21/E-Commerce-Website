@@ -8,7 +8,7 @@ const {
   sendPasswordResetOtpEmail,
   sendPasswordResetSuccessEmail
 } = require('../utils/email');
-const { uploadImageToSupabase } = require('../utils/storage');
+const { uploadImageToSupabase, deleteImageFromSupabase } = require('../utils/storage');
 
 const generateOtp = () => crypto.randomInt(100000, 1000000).toString();
 
@@ -167,6 +167,12 @@ const updateProfile = async (req, res, next) => {
       'UPDATE users SET name = $1, email = $2, phone = $3, avatar = $4 WHERE id = $5',
       [nextName, nextEmail, nextPhone, nextAvatar, req.user.id]
     );
+
+    if (req.file && currentUser.avatar && currentUser.avatar !== nextAvatar) {
+      deleteImageFromSupabase(currentUser.avatar).catch(error => {
+        console.error('Old profile image delete error:', error);
+      });
+    }
 
     res.json({
       success: true,
