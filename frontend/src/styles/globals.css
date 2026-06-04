@@ -600,17 +600,29 @@
     }
 
     .mobile-menu-toggle {
-      margin-left: -0.375rem !important;
-      padding: 0.375rem !important;
+      margin-left: -0.25rem !important;
+      padding: 0.375rem 0.25rem !important;
+      flex-shrink: 0 !important;
+    }
+
+    .navbar-logo-link {
+      margin-left: -1.35rem !important;
+      flex: 1 1 auto !important;
+      min-width: 0 !important;
+      justify-content: flex-start !important;
     }
 
     .navbar-logo {
-      width: 4.75rem !important;
-      height: 2rem !important;
+      width: 7.15rem !important;
+      height: 2.85rem !important;
+      max-width: 100% !important;
+      object-fit: contain !important;
+      object-position: left center !important;
     }
 
     .navbar-actions {
       gap: 0.25rem !important;
+      flex-shrink: 0 !important;
     }
 
     .navbar-icon-button {

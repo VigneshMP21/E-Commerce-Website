@@ -62,7 +62,7 @@ export default function Navbar() {
           </button>
 
           {/* Logo */}
-          <Link to="/" className="flex items-center">
+          <Link to="/" className="navbar-logo-link flex items-center">
             <img
               src={logo}
               alt="V Shop logo"
