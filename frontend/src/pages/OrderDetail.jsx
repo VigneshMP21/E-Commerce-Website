@@ -489,6 +489,7 @@ function PageIntro({ orderCount, deliveredCount, totalSavings }) {
 
 function OrderHero({ order, reorderBusy, onDownloadInvoice, onReorder }) {
   const itemCount = order.items?.length || 0;
+  const invoiceReady = normalizeStatus(order.status) === 'delivered';
 
   return (
     <div className="overflow-hidden rounded-[32px] border border-white/70 bg-gradient-to-br from-white via-blue-50 to-violet-50 p-5 shadow-[0_28px_90px_rgba(79,70,229,0.16)] dark:border-white/10 dark:from-gray-950 dark:via-primary-950/20 dark:to-violet-950/20 sm:p-6">
@@ -533,10 +534,21 @@ function OrderHero({ order, reorderBusy, onDownloadInvoice, onReorder }) {
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
-          <button type="button" onClick={() => onDownloadInvoice(order)} className="btn-primary btn-shimmer w-full gap-2">
+          <button
+            type="button"
+            onClick={() => onDownloadInvoice(order)}
+            disabled={!invoiceReady}
+            title={invoiceReady ? 'Download invoice' : 'Invoice will be available after delivery'}
+            className={`btn-primary w-full gap-2 ${invoiceReady ? 'btn-shimmer' : 'cursor-not-allowed opacity-60'}`}
+          >
             <HiOutlineDocumentDownload size={18} />
             Download Invoice
           </button>
+          {!invoiceReady && (
+            <p className="text-center text-xs font-medium text-gray-500 dark:text-gray-400">
+              Invoice available after delivery
+            </p>
+          )}
           <Link to="/contact" className="btn-secondary w-full gap-2">
             <HiOutlineSupport size={18} />
             Contact Support
@@ -1407,6 +1419,11 @@ export default function OrderDetail() {
   };
 
   const handleDownloadInvoice = (selectedOrder) => {
+    if (normalizeStatus(selectedOrder.status) !== 'delivered') {
+      toast.error('Invoice is available after the order is delivered.');
+      return;
+    }
+
     const blob = buildInvoicePdfBlob(selectedOrder, { address, user });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
