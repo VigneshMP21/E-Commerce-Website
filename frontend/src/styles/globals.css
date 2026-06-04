@@ -938,6 +938,99 @@
     .footer-legal-links {
       gap: 0.9rem !important;
     }
+
+    .checkout-layout,
+    .checkout-main,
+    .checkout-summary-column {
+      min-width: 0 !important;
+      max-width: 100% !important;
+      overflow-x: hidden !important;
+    }
+
+    .checkout-review-card,
+    .checkout-summary-card {
+      width: 100% !important;
+      max-width: 100% !important;
+      border-radius: 0.9rem !important;
+      padding: 1rem !important;
+      overflow: hidden !important;
+    }
+
+    .checkout-review-card h3,
+    .checkout-summary-card h3 {
+      font-size: 1rem !important;
+      line-height: 1.35rem !important;
+    }
+
+    .checkout-review-items {
+      gap: 0.65rem !important;
+    }
+
+    .checkout-review-item {
+      display: grid !important;
+      grid-template-columns: 3rem minmax(0, 1fr) !important;
+      align-items: center !important;
+      gap: 0.65rem !important;
+      padding: 0.7rem !important;
+    }
+
+    .checkout-review-image {
+      width: 3rem !important;
+      height: 3rem !important;
+      border-radius: 0.65rem !important;
+    }
+
+    .checkout-review-info {
+      min-width: 0 !important;
+    }
+
+    .checkout-review-name {
+      max-width: 100% !important;
+      white-space: normal !important;
+      display: -webkit-box !important;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      overflow: hidden !important;
+      line-height: 1.15rem !important;
+      overflow-wrap: anywhere;
+    }
+
+    .checkout-review-price {
+      grid-column: 2 !important;
+      margin-top: -0.2rem !important;
+      font-size: 0.8rem !important;
+      color: #4f46e5;
+    }
+
+    .checkout-place-order-button {
+      min-width: 0 !important;
+      max-width: 100% !important;
+      padding: 0.85rem 0.75rem !important;
+      font-size: 0.88rem !important;
+      line-height: 1.1rem !important;
+      white-space: normal !important;
+      text-align: center !important;
+    }
+
+    .checkout-summary-card {
+      position: static !important;
+      margin-top: 0 !important;
+    }
+
+    .checkout-summary-lines {
+      gap: 0.7rem !important;
+    }
+
+    .checkout-summary-line {
+      min-width: 0 !important;
+      gap: 1rem !important;
+      align-items: baseline !important;
+    }
+
+    .checkout-summary-line span {
+      min-width: 0 !important;
+      overflow-wrap: anywhere;
+    }
   }
 
   @media (max-width: 767.98px) {

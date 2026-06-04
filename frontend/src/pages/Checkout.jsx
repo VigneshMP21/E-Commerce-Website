@@ -161,8 +161,8 @@ export default function Checkout() {
         ))}
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="checkout-layout grid lg:grid-cols-3 gap-8">
+        <div className="checkout-main lg:col-span-2 space-y-6">
           {/* Step 1: Shipping */}
           {step === 1 && (
             <div className="card p-6 space-y-4">
@@ -228,21 +228,21 @@ export default function Checkout() {
 
           {/* Step 3: Review */}
           {step === 3 && (
-            <div className="card p-6 space-y-4">
+            <div className="checkout-review-card card p-6 space-y-4">
               <h3 className="font-semibold text-lg">Review Your Order</h3>
-              <div className="space-y-3">
+              <div className="checkout-review-items space-y-3">
                 {items.map(item => (
-                  <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
-                    <img src={item.image} alt={item.name} className="w-14 h-14 rounded-lg object-cover" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{item.name}</p>
+                  <div key={item.id} className="checkout-review-item flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-800">
+                    <img src={item.image} alt={item.name} className="checkout-review-image w-14 h-14 rounded-lg object-cover" />
+                    <div className="checkout-review-info flex-1 min-w-0">
+                      <p className="checkout-review-name text-sm font-medium truncate">{item.name}</p>
                       <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
                     </div>
-                    <p className="font-medium text-sm">{formatPrice(item.price * item.quantity)}</p>
+                    <p className="checkout-review-price font-medium text-sm">{formatPrice(item.price * item.quantity)}</p>
                   </div>
                 ))}
               </div>
-              <button onClick={handlePlaceOrder} disabled={processing} className="btn-primary w-full py-4 text-base">
+              <button onClick={handlePlaceOrder} disabled={processing} className="checkout-place-order-button btn-primary w-full py-4 text-base">
                 {processing ? 'Processing...' : `Place Order - ${formatPrice(total)}`}
               </button>
             </div>
@@ -250,24 +250,24 @@ export default function Checkout() {
         </div>
 
         {/* Order summary sidebar */}
-        <div>
-          <div className="card p-6 sticky top-24">
+        <div className="checkout-summary-column">
+          <div className="checkout-summary-card card p-6 sticky top-24">
             <h3 className="font-semibold text-lg mb-4">Order Summary</h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
+            <div className="checkout-summary-lines space-y-3 text-sm">
+              <div className="checkout-summary-line flex justify-between">
                 <span className="text-gray-500">Subtotal ({items.length} items)</span>
                 <span>{formatPrice(subtotal)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="checkout-summary-line flex justify-between">
                 <span className="text-gray-500">Shipping</span>
                 <span>{subtotal > 100 ? 'Free' : formatPrice(10)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="checkout-summary-line flex justify-between">
                 <span className="text-gray-500">Tax</span>
                 <span>{formatPrice(subtotal * 0.08)}</span>
               </div>
               <hr className="border-gray-200 dark:border-gray-700" />
-              <div className="flex justify-between text-lg font-bold">
+              <div className="checkout-summary-line flex justify-between text-lg font-bold">
                 <span>Total</span>
                 <span>{formatPrice(total)}</span>
               </div>
