@@ -328,7 +328,7 @@ function CountdownTimer({ target }) {
             <span className="text-xl font-black text-gray-900 dark:text-white tabular-nums tracking-tight">{v}</span>
             <span className="text-[9px] font-bold text-gray-400 tracking-widest">{l}</span>
           </div>
-          {i < 2 && <span className="text-xl font-bold text-primary-500 -mt-2">:</span>}
+          {i < 2 && <span className="text-xl font-bold text-primary-500 -mt-2 countdown-colon">:</span>}
         </div>
       ))}
     </div>
@@ -443,7 +443,7 @@ export default function Home() {
           FEATURE CARDS
       ══════════════════════════════════ */}
       <section className="relative z-10 mx-auto -mt-12 max-w-6xl px-4 pb-6 pt-0 sm:-mt-14 sm:px-6 md:-mt-16 md:pb-8 lg:-mt-20 lg:px-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mobile-feature-cards">
           {features.map((f, i) => (
             <motion.div
               key={f.title}
@@ -469,9 +469,9 @@ export default function Home() {
       ══════════════════════════════════ */}
       <section className="container-custom pb-16 pt-8 md:pb-24 md:pt-10" ref={featRef}>
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10 popular-products-header-container">
           <div>
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-2 mobile-hide-badge">
               <div className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-100 dark:bg-rose-900/30 rounded-full">
                 <HiOutlineLightningBolt size={16} className="text-rose-600 dark:text-rose-400" />
                 <span className="text-xs font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider">
@@ -479,16 +479,16 @@ export default function Home() {
                 </span>
               </div>
             </div>
-            <h2 className="section-title">
+            <h2 className="section-title mobile-left-title">
               Popular{' '}
               <span className="gradient-text">Products</span>
             </h2>
-            <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">
+            <p className="text-gray-500 dark:text-gray-400 text-sm mt-2 mobile-hide-desc">
               Curated picks just for you — limited stock available
             </p>
           </div>
-          <div className="flex flex-col items-start sm:items-end gap-3">
-            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 font-medium">
+          <div className="flex flex-col items-start sm:items-end gap-3 mobile-right-timer-area">
+            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 font-medium mobile-ends-in-inline">
               <HiOutlineFire size={18} className="text-rose-500" />
               Ends in
             </div>
