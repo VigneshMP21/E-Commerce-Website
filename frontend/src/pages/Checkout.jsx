@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { HiOutlineLockClosed } from 'react-icons/hi';
+import { HiOutlineCheckCircle, HiOutlineLockClosed } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { useCart } from '../context/CartContext';
@@ -17,6 +17,64 @@ const initialAddressForm = {
   zipCode: '',
   country: 'India'
 };
+
+const makePaymentImage = (svg) => `data:image/svg+xml,${encodeURIComponent(svg)}`;
+
+const paymentMethods = [
+  {
+    id: 'stripe',
+    label: 'Credit/Debit Card',
+    desc: 'Pay via Stripe',
+    imageAlt: 'Credit card payment',
+    image: makePaymentImage(`
+      <svg width="96" height="64" viewBox="0 0 96 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="96" height="64" rx="18" fill="#EEF2FF"/>
+        <rect x="16" y="16" width="64" height="38" rx="8" fill="#635BFF"/>
+        <rect x="22" y="24" width="20" height="5" rx="2.5" fill="#A5B4FC"/>
+        <rect x="22" y="41" width="16" height="3" rx="1.5" fill="white" opacity="0.85"/>
+        <rect x="42" y="41" width="12" height="3" rx="1.5" fill="white" opacity="0.55"/>
+        <circle cx="63" cy="42" r="7" fill="#F59E0B" opacity="0.9"/>
+        <circle cx="70" cy="42" r="7" fill="#EF4444" opacity="0.85"/>
+        <text x="48" y="34" text-anchor="middle" fill="white" font-family="Inter, Arial, sans-serif" font-size="10" font-weight="800">STRIPE</text>
+      </svg>
+    `)
+  },
+  {
+    id: 'razorpay',
+    label: 'UPI / Net Banking',
+    desc: 'Pay via Razorpay',
+    imageAlt: 'UPI and net banking payment',
+    image: makePaymentImage(`
+      <svg width="96" height="64" viewBox="0 0 96 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="96" height="64" rx="18" fill="#ECFEFF"/>
+        <rect x="14" y="16" width="68" height="38" rx="10" fill="#0EA5E9"/>
+        <path d="M29 24L23 40H31L27 50L43 31H35L39 24H29Z" fill="#BBF7D0"/>
+        <text x="57" y="34" fill="white" font-family="Inter, Arial, sans-serif" font-size="12" font-weight="900">UPI</text>
+        <text x="57" y="45" fill="#DFF7FF" font-family="Inter, Arial, sans-serif" font-size="7" font-weight="700">Razorpay</text>
+        <rect x="57" y="19" width="16" height="4" rx="2" fill="white" opacity="0.55"/>
+      </svg>
+    `)
+  },
+  {
+    id: 'cod',
+    label: 'Cash on Delivery',
+    desc: 'Pay when delivered',
+    imageAlt: 'Cash on delivery payment',
+    image: makePaymentImage(`
+      <svg width="96" height="64" viewBox="0 0 96 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="96" height="64" rx="18" fill="#F0FDF4"/>
+        <rect x="18" y="25" width="36" height="25" rx="6" fill="#22C55E"/>
+        <circle cx="36" cy="38" r="7" fill="#DCFCE7"/>
+        <text x="36" y="41" text-anchor="middle" fill="#16A34A" font-family="Inter, Arial, sans-serif" font-size="10" font-weight="900">$</text>
+        <path d="M56 23H71L80 32V48H56V23Z" fill="#0F172A"/>
+        <path d="M71 23V32H80" fill="#94A3B8"/>
+        <rect x="61" y="51" width="8" height="8" rx="4" fill="#64748B"/>
+        <rect x="73" y="51" width="8" height="8" rx="4" fill="#64748B"/>
+        <text x="36" y="19" text-anchor="middle" fill="#16A34A" font-family="Inter, Arial, sans-serif" font-size="8" font-weight="800">COD</text>
+      </svg>
+    `)
+  }
+];
 
 export default function Checkout() {
   const [step, setStep] = useState(1);
@@ -146,15 +204,21 @@ export default function Checkout() {
             <div className="card p-6 space-y-4">
               <h3 className="font-semibold text-lg">Payment Method</h3>
               <div className="space-y-3">
-                {[
-                  { id: 'stripe', label: 'Credit/Debit Card', desc: 'Pay via Stripe' },
-                  { id: 'razorpay', label: 'UPI / Net Banking', desc: 'Pay via Razorpay' },
-                  { id: 'cod', label: 'Cash on Delivery', desc: 'Pay when delivered' }
-                ].map(m => (
-                  <label key={m.id} className={`block p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === m.id ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-900/20' : 'border-gray-200 dark:border-gray-700'}`}>
+                {paymentMethods.map(m => (
+                  <label key={m.id} className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === m.id ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'}`}>
                     <input type="radio" name="payment" checked={paymentMethod === m.id} onChange={() => setPaymentMethod(m.id)} className="sr-only" />
-                    <p className="font-medium">{m.label}</p>
-                    <p className="text-sm text-gray-500">{m.desc}</p>
+                    <img
+                      src={m.image}
+                      alt={m.imageAlt}
+                      className="h-12 w-16 shrink-0 rounded-xl object-cover shadow-sm ring-1 ring-gray-100 dark:ring-gray-800"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-medium">{m.label}</span>
+                      <span className="block text-sm text-gray-500">{m.desc}</span>
+                    </span>
+                    {paymentMethod === m.id && (
+                      <HiOutlineCheckCircle size={22} className="shrink-0 text-primary-600" />
+                    )}
                   </label>
                 ))}
               </div>
