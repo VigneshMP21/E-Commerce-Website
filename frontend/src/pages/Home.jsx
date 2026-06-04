@@ -431,7 +431,7 @@ export default function Home() {
       {/* ══════════════════════════════════
           HERO SECTION
       ══════════════════════════════════ */}
-      <section className="relative z-10 bg-gray-50 dark:bg-gray-950">
+      <section className="relative z-10 bg-gray-50 dark:bg-gray-950 mobile-hide-hero">
         <div className="w-full">
           <div className="relative w-full aspect-[16/9] overflow-hidden bg-primary-950 shadow-2xl shadow-primary-950/10">
             <HeroBackgroundMarquee image={heroBackgroundImages[heroBgIndex]} />
@@ -442,7 +442,7 @@ export default function Home() {
       {/* ══════════════════════════════════
           FEATURE CARDS
       ══════════════════════════════════ */}
-      <section className="relative z-10 mx-auto -mt-12 max-w-6xl px-4 pb-6 pt-0 sm:-mt-14 sm:px-6 md:-mt-16 md:pb-8 lg:-mt-20 lg:px-8">
+      <section className="relative z-10 mx-auto -mt-12 max-w-6xl px-4 pb-6 pt-0 sm:-mt-14 sm:px-6 md:-mt-16 md:pb-8 lg:-mt-20 lg:px-8 mobile-feature-cards-section">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mobile-feature-cards">
           {features.map((f, i) => (
             <motion.div

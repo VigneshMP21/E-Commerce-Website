@@ -425,6 +425,14 @@
   .contact-page-footer .footer-contact-col a {
     justify-content: center !important;
   }
+
+  /* Hero section and feature section alignment tweaks */
+  .mobile-hide-hero {
+    display: none !important;
+  }
+  .mobile-feature-cards-section {
+    margin-top: 16px !important;
+  }
 }
 
 @media (min-width: 480px) {
