@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { HiOutlineCheckCircle, HiOutlineLockClosed } from 'react-icons/hi';
+import { HiOutlineCheckCircle, HiOutlineLockClosed, HiOutlineShoppingBag } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { useCart } from '../context/CartContext';
@@ -76,16 +76,111 @@ const paymentMethods = [
   }
 ];
 
+const confettiColors = ['#4f46e5', '#06b6d4', '#22c55e', '#f59e0b', '#ef4444', '#ec4899', '#8b5cf6', '#14b8a6'];
+const confettiCorners = [
+  { name: 'top-left', x: 1, y: 1 },
+  { name: 'top-right', x: -1, y: 1 },
+  { name: 'bottom-left', x: 1, y: -1 },
+  { name: 'bottom-right', x: -1, y: -1 }
+];
+
+const orderSuccessConfetti = confettiCorners.flatMap((corner, cornerIndex) => (
+  Array.from({ length: 60 }, (_, index) => {
+    const spreadX = 14 + Math.random() * 82;
+    const spreadY = 12 + Math.random() * 82;
+    const size = 3 + Math.random() * 5;
+
+    return {
+      id: `${corner.name}-${index}`,
+      corner: corner.name,
+      style: {
+        '--tx': `${corner.x * spreadX}vw`,
+        '--ty': `${corner.y * spreadY}vh`,
+        '--r': `${corner.x * corner.y * (180 + Math.random() * 900)}deg`,
+        '--d': `${1.25 + Math.random() * 0.8}s`,
+        '--delay': `${cornerIndex * 0.04 + Math.random() * 0.18}s`,
+        '--w': `${size}px`,
+        '--h': `${size * (0.7 + Math.random() * 1.4)}px`,
+        '--bg': confettiColors[(cornerIndex * 60 + index) % confettiColors.length]
+      }
+    };
+  })
+));
+
+const playOrderSuccessSound = () => {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+
+    const audio = new AudioContext();
+    const now = audio.currentTime;
+    const master = audio.createGain();
+    master.gain.setValueAtTime(0.0001, now);
+    master.gain.exponentialRampToValueAtTime(0.28, now + 0.02);
+    master.gain.exponentialRampToValueAtTime(0.0001, now + 0.7);
+    master.connect(audio.destination);
+
+    const pop = audio.createOscillator();
+    const popGain = audio.createGain();
+    pop.type = 'triangle';
+    pop.frequency.setValueAtTime(520, now);
+    pop.frequency.exponentialRampToValueAtTime(1100, now + 0.08);
+    popGain.gain.setValueAtTime(0.0001, now);
+    popGain.gain.exponentialRampToValueAtTime(0.2, now + 0.015);
+    popGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+    pop.connect(popGain).connect(master);
+    pop.start(now);
+    pop.stop(now + 0.2);
+
+    const thump = audio.createOscillator();
+    const thumpGain = audio.createGain();
+    thump.type = 'sine';
+    thump.frequency.setValueAtTime(140, now);
+    thump.frequency.exponentialRampToValueAtTime(55, now + 0.16);
+    thumpGain.gain.setValueAtTime(0.0001, now);
+    thumpGain.gain.exponentialRampToValueAtTime(0.22, now + 0.01);
+    thumpGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+    thump.connect(thumpGain).connect(master);
+    thump.start(now);
+    thump.stop(now + 0.24);
+
+    const noiseBuffer = audio.createBuffer(1, audio.sampleRate * 0.28, audio.sampleRate);
+    const noiseData = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < noiseData.length; i += 1) {
+      noiseData[i] = (Math.random() * 2 - 1) * (1 - i / noiseData.length);
+    }
+
+    const noise = audio.createBufferSource();
+    const noiseFilter = audio.createBiquadFilter();
+    const noiseGain = audio.createGain();
+    noise.buffer = noiseBuffer;
+    noiseFilter.type = 'highpass';
+    noiseFilter.frequency.setValueAtTime(1800, now);
+    noiseGain.gain.setValueAtTime(0.0001, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.14, now + 0.02);
+    noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+    noise.connect(noiseFilter).connect(noiseGain).connect(master);
+    noise.start(now + 0.02);
+    noise.stop(now + 0.34);
+
+    window.setTimeout(() => audio.close?.(), 900);
+  } catch {
+    // Audio is a progressive enhancement and may be blocked by browser policy.
+  }
+};
+
 export default function Checkout() {
   const [step, setStep] = useState(1);
   const [addresses, setAddresses] = useState([]);
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState('stripe');
   const [processing, setProcessing] = useState(false);
+  const [orderSuccess, setOrderSuccess] = useState(null);
   const [newAddress, setNewAddress] = useState(initialAddressForm);
   const { items, subtotal, clearCart } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const successNavigationRef = useRef(null);
 
   useEffect(() => {
     if (!user) navigate('/login');
@@ -97,6 +192,12 @@ export default function Checkout() {
       }).catch(console.error);
     }
   }, [user]);
+
+  useEffect(() => () => {
+    if (successNavigationRef.current) {
+      window.clearTimeout(successNavigationRef.current);
+    }
+  }, []);
 
   const saveAddress = async () => {
     try {
@@ -126,15 +227,27 @@ export default function Checkout() {
   const handlePlaceOrder = async () => {
     if (!selectedAddress) { toast.error('Please select a shipping address'); return; }
     setProcessing(true);
+    const firstItem = items[0];
+    const orderPreview = {
+      image: firstItem?.image || '',
+      name: firstItem
+        ? `${firstItem.name}${items.length > 1 ? ` + ${items.length - 1} more` : ''}`
+        : 'Your order'
+    };
+
     try {
       const res = await api.post('/orders', {
         shippingAddressId: selectedAddress,
         paymentMethod,
         notes: ''
       });
-      toast.success('Order placed successfully!');
+      const orderNumber = res.data.data.orderNumber;
+      setOrderSuccess({ ...orderPreview, orderNumber });
+      playOrderSuccessSound();
       clearCart();
-      navigate(`/orders/${res.data.data.orderNumber}`);
+      successNavigationRef.current = window.setTimeout(() => {
+        navigate(`/orders/${orderNumber}`);
+      }, 4200);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to place order');
     } finally {
@@ -145,6 +258,7 @@ export default function Checkout() {
   const total = subtotal + (subtotal > 100 ? 0 : 10) + subtotal * 0.08;
 
   return (
+    <>
     <div className="container-custom py-6 md:py-8">
       <Breadcrumb items={[{ name: 'Checkout' }]} />
 
@@ -278,6 +392,37 @@ export default function Checkout() {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+    {orderSuccess && <OrderSuccessOverlay order={orderSuccess} />}
+    </>
+  );
+}
+
+function OrderSuccessOverlay({ order }) {
+  return (
+    <div className="order-success-overlay" role="status" aria-live="polite">
+      <div className="order-success-confetti" aria-hidden="true">
+        {orderSuccessConfetti.map(piece => (
+          <span
+            key={piece.id}
+            className={`order-success-confetti-piece order-success-confetti-${piece.corner}`}
+            style={piece.style}
+          />
+        ))}
+      </div>
+
+      <div className="order-success-card">
+        <div className="order-success-image-ring">
+          {order.image ? (
+            <img src={order.image} alt={order.name} className="order-success-image" />
+          ) : (
+            <HiOutlineShoppingBag size={46} className="text-primary-600" />
+          )}
+        </div>
+        <p className="order-success-product-name">{order.name}</p>
+        <h2>Order Placed Successfully</h2>
+        <p className="order-success-order-number">Redirecting to order {order.orderNumber}</p>
       </div>
     </div>
   );
