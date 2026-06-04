@@ -146,12 +146,12 @@ export default function Footer() {
       </div>
 
       <div className="border-t border-gray-100 bg-gray-50">
-        <div className="container-custom flex flex-col gap-5 py-6 lg:flex-row lg:items-center lg:justify-between">
-          <p className="text-sm text-gray-500">
+        <div className="footer-bottom-content container-custom flex flex-col gap-5 py-6 lg:flex-row lg:items-center lg:justify-between">
+          <p className="footer-copyright text-sm text-gray-500">
             &copy; {new Date().getFullYear()} V Shop. All rights reserved.
           </p>
 
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="footer-payment-row flex flex-wrap items-center gap-4">
             <span className="text-sm font-medium text-gray-500">Secure payments</span>
             <div className="flex items-center gap-2 text-3xl text-gray-500">
               {paymentIcons.map(item => (
@@ -160,7 +160,7 @@ export default function Footer() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+          <div className="footer-legal-links flex flex-wrap items-center gap-4 text-sm text-gray-500">
             <a href="#" className="transition-colors hover:text-primary-600">Privacy Policy</a>
             <a href="#" className="transition-colors hover:text-primary-600">Terms</a>
             <a href="#" className="transition-colors hover:text-primary-600">Cookies</a>

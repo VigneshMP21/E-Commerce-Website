@@ -206,7 +206,7 @@
     display: contents;
   }
 
-  @media (max-width: 479.98px) {
+  @media (max-width: 480px) {
     html,
     body,
     #root {
@@ -588,6 +588,343 @@
     100% {
       opacity: 0;
       transform: translateY(0);
+    }
+  }
+
+  @media (max-width: 480px) {
+    html,
+    body,
+    #root {
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    .mobile-menu-toggle {
+      margin-left: -0.375rem !important;
+      padding: 0.375rem !important;
+    }
+
+    .navbar-logo {
+      width: 4.75rem !important;
+      height: 2rem !important;
+    }
+
+    .navbar-actions {
+      gap: 0.25rem !important;
+    }
+
+    .navbar-icon-button {
+      padding: 0.375rem !important;
+    }
+
+    .navbar-icon-button svg {
+      width: 1.1rem;
+      height: 1.1rem;
+    }
+
+    .theme-toggle-button {
+      display: none !important;
+    }
+
+    .mobile-sidebar-theme-item {
+      display: flex !important;
+    }
+
+    .mobile-signin-button {
+      padding: 0.4rem 0.55rem !important;
+      border-radius: 0.5rem !important;
+      font-size: 0.72rem !important;
+      line-height: 1rem !important;
+      white-space: nowrap !important;
+    }
+
+    .home-feature-section {
+      margin-top: -1rem !important;
+      padding-right: 0.75rem !important;
+      padding-bottom: 0.85rem !important;
+      padding-left: 0.75rem !important;
+    }
+
+    .home-feature-grid {
+      display: grid !important;
+      grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+      gap: 0.25rem !important;
+      width: 100%;
+      overflow: hidden;
+      border: 1px solid rgba(226, 232, 240, 0.95);
+      border-radius: 1rem;
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+      padding: 0.55rem 0.35rem;
+      backdrop-filter: blur(16px);
+    }
+
+    .dark .home-feature-grid {
+      border-color: rgba(31, 41, 55, 0.9);
+      background: rgba(17, 24, 39, 0.92);
+    }
+
+    .home-feature-card {
+      min-width: 0 !important;
+      min-height: 4.75rem !important;
+      gap: 0.35rem !important;
+      border: 0 !important;
+      border-radius: 0.75rem !important;
+      background: transparent !important;
+      box-shadow: none !important;
+      padding: 0.1rem 0.1rem !important;
+      text-align: center !important;
+      backdrop-filter: none !important;
+    }
+
+    .home-feature-icon {
+      width: 2.45rem !important;
+      height: 2.45rem !important;
+      border-radius: 0.85rem !important;
+      margin-right: auto;
+      margin-left: auto;
+      box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.08);
+    }
+
+    .home-feature-icon svg {
+      width: 1.05rem;
+      height: 1.05rem;
+    }
+
+    .home-feature-title {
+      max-width: 100% !important;
+      font-size: 0.66rem !important;
+      line-height: 0.82rem !important;
+      text-align: center !important;
+    }
+
+    .home-feature-desc {
+      display: none !important;
+    }
+
+    .popular-products-header {
+      flex-direction: row !important;
+      align-items: center !important;
+      gap: 0.5rem !important;
+      margin-bottom: 1rem !important;
+    }
+
+    .popular-products-title-block {
+      min-width: 0 !important;
+      flex: 1 1 auto !important;
+    }
+
+    .popular-products-badge,
+    .popular-products-subtitle {
+      display: none !important;
+    }
+
+    .popular-products-title {
+      font-size: 1.05rem !important;
+      line-height: 1.2rem !important;
+      text-align: left !important;
+    }
+
+    .popular-products-countdown {
+      flex: 0 0 auto !important;
+      flex-direction: row !important;
+      align-items: center !important;
+      gap: 0.3rem !important;
+    }
+
+    .popular-products-countdown-label {
+      font-size: 0.58rem !important;
+      line-height: 1 !important;
+      letter-spacing: 0.02em !important;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .popular-products-countdown-label svg {
+      display: none !important;
+    }
+
+    .popular-products-countdown .countdown-timer {
+      gap: 0.1rem !important;
+    }
+
+    .popular-products-countdown .countdown-segment {
+      gap: 0.08rem !important;
+    }
+
+    .popular-products-countdown .countdown-cell {
+      min-width: 1.65rem !important;
+      border-radius: 0.4rem !important;
+      padding: 0.16rem 0.2rem !important;
+      box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08) !important;
+    }
+
+    .popular-products-countdown .countdown-cell span:first-child {
+      font-size: 0.68rem !important;
+      line-height: 0.8rem !important;
+    }
+
+    .popular-products-countdown .countdown-cell span:last-child {
+      font-size: 0.4rem !important;
+      line-height: 0.5rem !important;
+      letter-spacing: 0.03em !important;
+    }
+
+    .popular-products-countdown .countdown-separator {
+      margin-top: 0 !important;
+      font-size: 0.7rem !important;
+      line-height: 1 !important;
+    }
+
+    .product-card-actions {
+      padding-right: 0.5rem !important;
+      padding-bottom: 0.55rem !important;
+      padding-left: 0.5rem !important;
+    }
+
+    .add-to-cart-button {
+      min-height: 2rem !important;
+      gap: 0.2rem !important;
+      border-radius: 0.5rem !important;
+      padding: 0.48rem 0.35rem !important;
+      font-size: 0.68rem !important;
+      line-height: 0.85rem !important;
+      white-space: nowrap !important;
+    }
+
+    .add-to-cart-button svg {
+      width: 0.8rem !important;
+      height: 0.8rem !important;
+      flex-shrink: 0 !important;
+    }
+
+    .footer-service-grid {
+      display: grid !important;
+      grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+      justify-items: center !important;
+      gap: 0.45rem !important;
+      padding-top: 0.9rem !important;
+      padding-bottom: 0.95rem !important;
+    }
+
+    .footer-service-card {
+      min-width: 0 !important;
+      width: 100% !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: flex-start !important;
+      gap: 0.45rem !important;
+      text-align: center !important;
+    }
+
+    .footer-service-card > div:not(.footer-service-icon) {
+      display: flex;
+      min-width: 0;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .footer-service-icon {
+      width: 2.65rem !important;
+      height: 2.65rem !important;
+      border-radius: 0.85rem !important;
+      margin-right: auto;
+      margin-left: auto;
+    }
+
+    .footer-service-icon svg {
+      width: 1rem !important;
+      height: 1rem !important;
+    }
+
+    .footer-service-title {
+      max-width: 4.4rem !important;
+      font-size: 0.6rem !important;
+      line-height: 0.78rem !important;
+      text-align: center !important;
+    }
+
+    .footer-service-text {
+      display: none !important;
+    }
+
+    .footer-main-grid {
+      gap: 1.75rem !important;
+    }
+
+    .footer-main-grid > div:first-child {
+      text-align: center !important;
+    }
+
+    .footer-main-grid > div:first-child > a {
+      justify-content: center !important;
+    }
+
+    .footer-main-grid > div:first-child p {
+      margin-right: auto !important;
+      margin-left: auto !important;
+    }
+
+    .footer-social-links {
+      justify-content: center !important;
+      gap: 0.65rem !important;
+    }
+
+    .footer-social-link {
+      width: 2.25rem !important;
+      height: 2.25rem !important;
+    }
+
+    .footer-link-columns {
+      display: grid !important;
+      grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+      justify-items: center !important;
+      gap: 0.65rem !important;
+      align-items: start !important;
+    }
+
+    .footer-column {
+      min-width: 0 !important;
+      width: 100% !important;
+      text-align: center !important;
+    }
+
+    .footer-column-title {
+      font-size: 0.68rem !important;
+      line-height: 0.85rem !important;
+      letter-spacing: 0.04em !important;
+      text-align: center !important;
+    }
+
+    .footer-column ul {
+      margin-top: 0.65rem !important;
+    }
+
+    .footer-column ul > :not([hidden]) ~ :not([hidden]) {
+      margin-top: 0.45rem !important;
+    }
+
+    .footer-column a {
+      overflow-wrap: anywhere;
+      font-size: 0.68rem !important;
+      line-height: 0.9rem !important;
+      text-align: center !important;
+    }
+
+    .footer-bottom-content,
+    .footer-payment-row,
+    .footer-legal-links {
+      align-items: center !important;
+      justify-content: center !important;
+      text-align: center !important;
+    }
+
+    .footer-payment-row {
+      gap: 0.55rem 0.8rem !important;
+    }
+
+    .footer-legal-links {
+      gap: 0.9rem !important;
     }
   }
 }
