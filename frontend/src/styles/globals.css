@@ -613,8 +613,8 @@
     }
 
     .navbar-logo {
-      width: 60px !important;
-      height: 40px !important;
+      width: 150px !important;
+      height: 100px !important;
       max-width: 100% !important;
       object-fit: contain !important;
       object-position: left center !important;
