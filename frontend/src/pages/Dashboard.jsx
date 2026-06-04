@@ -433,6 +433,23 @@ export default function Dashboard() {
           <div className="md:col-span-3">
             {activeTab === 'overview' && (
               <div className="space-y-6">
+                {editingProfile ? (
+                  <ProfileEditForm
+                    form={profileForm}
+                    saving={profileSaving}
+                    onChange={updateProfileForm}
+                    onAvatarChange={handleProfileImageChange}
+                    onCancel={cancelProfileEdit}
+                    onSubmit={handleProfileSave}
+                  />
+                ) : (
+                  <ProfileCard
+                    user={user}
+                    phone={profileForm.phone}
+                    onEdit={() => setEditingProfile(true)}
+                  />
+                )}
+
                 <div className="dashboard-stats-grid grid grid-cols-3 gap-3 md:gap-4">
                   {stats.map(stat => (
                     <div key={stat.label} className={`card min-w-0 p-3 md:p-4 ${stat.bg}`}>

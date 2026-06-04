@@ -1,6 +1,20 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { HiOutlineMenu, HiOutlineX, HiOutlineShoppingCart, HiOutlineHeart, HiOutlineUser, HiOutlineSun, HiOutlineMoon, HiOutlineSearch, HiOutlineKey } from 'react-icons/hi';
+import {
+  HiOutlineMenu,
+  HiOutlineX,
+  HiOutlineShoppingCart,
+  HiOutlineHeart,
+  HiOutlineUser,
+  HiOutlineSun,
+  HiOutlineMoon,
+  HiOutlineSearch,
+  HiOutlineKey,
+  HiOutlineShoppingBag,
+  HiOutlineLocationMarker,
+  HiOutlineShieldCheck,
+  HiOutlineLogout
+} from 'react-icons/hi';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -109,19 +123,37 @@ export default function Navbar() {
                         <p className="text-sm font-medium truncate">{user.name}</p>
                         <p className="text-xs text-gray-500 truncate">{user.email}</p>
                       </div>
-                      <Link to="/dashboard" className="block px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800" onClick={() => setUserMenuOpen(false)}>Dashboard</Link>
-                      <Link to="/orders" className="block px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800" onClick={() => setUserMenuOpen(false)}>Orders</Link>
-                      <Link to="/addresses" className="block px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800" onClick={() => setUserMenuOpen(false)}>Address</Link>
-                      <Link to="/dashboard?tab=password" className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800" onClick={() => setUserMenuOpen(false)}>
-                        <HiOutlineKey size={16} />
+                      <Link to="/dashboard" className="flex items-center gap-2.5 px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800" onClick={() => setUserMenuOpen(false)}>
+                        <HiOutlineUser size={16} className="text-gray-400" />
+                        Dashboard
+                      </Link>
+                      <Link to="/orders" className="flex items-center gap-2.5 px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800" onClick={() => setUserMenuOpen(false)}>
+                        <HiOutlineShoppingBag size={16} className="text-gray-400" />
+                        Orders
+                      </Link>
+                      <Link to="/addresses" className="flex items-center gap-2.5 px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800" onClick={() => setUserMenuOpen(false)}>
+                        <HiOutlineLocationMarker size={16} className="text-gray-400" />
+                        Address
+                      </Link>
+                      <Link to="/dashboard?tab=password" className="flex items-center gap-2.5 px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800" onClick={() => setUserMenuOpen(false)}>
+                        <HiOutlineKey size={16} className="text-gray-400" />
                         Change Password
                       </Link>
-                      <Link to="/wishlist" className="block px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800" onClick={() => setUserMenuOpen(false)}>Wishlist</Link>
+                      <Link to="/wishlist" className="flex items-center gap-2.5 px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800" onClick={() => setUserMenuOpen(false)}>
+                        <HiOutlineHeart size={16} className="text-gray-400" />
+                        Wishlist
+                      </Link>
                       {user.role === 'admin' && (
-                        <Link to="/admin" className="block px-4 py-2 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 text-primary-600" onClick={() => setUserMenuOpen(false)}>Admin Panel</Link>
+                        <Link to="/admin" className="flex items-center gap-2.5 px-4 py-2 text-sm text-primary-600 hover:bg-gray-50 dark:hover:bg-gray-800" onClick={() => setUserMenuOpen(false)}>
+                          <HiOutlineShieldCheck size={16} />
+                          Admin Panel
+                        </Link>
                       )}
                       <hr className="my-1 border-gray-100 dark:border-gray-800" />
-                      <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">Logout</button>
+                      <button onClick={handleLogout} className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
+                        <HiOutlineLogout size={16} />
+                        Logout
+                      </button>
                     </div>
                   </>
                 )}
