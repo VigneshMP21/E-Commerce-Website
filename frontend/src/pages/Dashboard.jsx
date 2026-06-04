@@ -401,7 +401,7 @@ export default function Dashboard() {
         <h1 className="text-2xl md:text-3xl font-bold mb-8">My Account</h1>
 
         <div className="grid md:grid-cols-4 gap-8">
-          <div className="md:col-span-1">
+          <div className="hidden md:col-span-1 md:block">
             <div className="card p-4 space-y-1">
               {tabs.map(tab => (
                 <button
