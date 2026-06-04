@@ -44,10 +44,10 @@ const footerLinks = {
 };
 
 const socialLinks = [
-  { name: 'Instagram', href: '#', icon: FaInstagram },
-  { name: 'LinkedIn', href: '#', icon: FaLinkedinIn },
-  { name: 'GitHub', href: '#', icon: FaGithub },
-  { name: 'WhatsApp', href: '#', icon: FaWhatsapp }
+  { name: 'Instagram', href: 'https://www.instagram.com/vignesh_mp_06/', icon: FaInstagram },
+  { name: 'LinkedIn', href: 'https://www.linkedin.com/in/vignesh-m-p-b7a60a373/', icon: FaLinkedinIn },
+  { name: 'GitHub', href: 'https://github.com/VigneshMP21', icon: FaGithub },
+  { name: 'WhatsApp', href: 'https://wa.me/919393211095/?text=Hi, I am interested in your website!', icon: FaWhatsapp }
 ];
 
 const paymentIcons = [

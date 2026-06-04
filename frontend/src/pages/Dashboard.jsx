@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
+  HiOutlineArrowRight,
+  HiOutlineCheckCircle,
+  HiOutlineClock,
   HiOutlineHeart,
   HiOutlineKey,
   HiOutlineLocationMarker,
@@ -25,6 +28,7 @@ const MAX_PROFILE_IMAGE_SIZE = 5 * 1024 * 1024;
 const CROPPED_AVATAR_SIZE = 512;
 const CROPPED_AVATAR_TYPE = 'image/jpeg';
 const DEFAULT_AVATAR_CROP = { x: 0, y: 0, size: 0 };
+const DASHBOARD_TABS = ['overview', 'orders', 'addresses', 'password'];
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
@@ -111,9 +115,14 @@ export default function Dashboard() {
   const { user, logout, setUser } = useAuth();
   const { wishlistIds, fetchWishlistIds } = useWishlist();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [orders, setOrders] = useState([]);
   const [addresses, setAddresses] = useState([]);
-  const [activeTab, setActiveTab] = useState('overview');
+  const getTabFromSearch = () => {
+    const requestedTab = searchParams.get('tab');
+    return DASHBOARD_TABS.includes(requestedTab) ? requestedTab : 'overview';
+  };
+  const [activeTab, setActiveTab] = useState(getTabFromSearch);
   const [wishlistCount, setWishlistCount] = useState(wishlistIds?.length || 0);
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
@@ -141,6 +150,10 @@ export default function Dashboard() {
       .catch(() => setWishlistCount(wishlistIds?.length || 0));
     fetchWishlistIds?.();
   }, []);
+
+  useEffect(() => {
+    setActiveTab(getTabFromSearch());
+  }, [searchParams]);
 
   useEffect(() => {
     setWishlistCount(wishlistIds?.length || 0);
@@ -173,8 +186,7 @@ export default function Dashboard() {
   const tabs = [
     { id: 'overview', label: 'Overview', icon: HiOutlineUser },
     { id: 'orders', label: 'Orders', icon: HiOutlineShoppingBag },
-    { id: 'addresses', label: 'Addresses', icon: HiOutlineLocationMarker },
-    { id: 'password', label: 'Change Password', icon: HiOutlineKey }
+    { id: 'addresses', label: 'Addresses', icon: HiOutlineLocationMarker }
   ];
 
   const stats = [
@@ -374,6 +386,15 @@ export default function Dashboard() {
     navigate('/', { replace: true });
   };
 
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    if (tabId === 'overview') {
+      setSearchParams({}, { replace: true });
+      return;
+    }
+    setSearchParams({ tab: tabId }, { replace: true });
+  };
+
   return (
     <>
       <div className="container-custom py-6 md:py-8">
@@ -386,7 +407,7 @@ export default function Dashboard() {
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
                     activeTab === tab.id
                       ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-600'
@@ -412,31 +433,21 @@ export default function Dashboard() {
           <div className="md:col-span-3">
             {activeTab === 'overview' && (
               <div className="space-y-6">
-                {editingProfile ? (
-                  <ProfileEditForm
-                    form={profileForm}
-                    saving={profileSaving}
-                    onChange={updateProfileForm}
-                    onAvatarChange={handleProfileImageChange}
-                    onCancel={cancelProfileEdit}
-                    onSubmit={handleProfileSave}
-                  />
-                ) : (
-                  <ProfileCard
-                    user={user}
-                    phone={profileForm.phone}
-                    onEdit={() => setEditingProfile(true)}
-                  />
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="dashboard-stats-grid grid grid-cols-3 gap-3 md:gap-4">
                   {stats.map(stat => (
-                    <div key={stat.label} className={`card p-4 ${stat.bg}`}>
-                      <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-                      <p className="text-sm text-gray-500">{stat.label}</p>
+                    <div key={stat.label} className={`card min-w-0 p-3 md:p-4 ${stat.bg}`}>
+                      <p className={`text-xl font-bold md:text-2xl ${stat.color}`}>{stat.value}</p>
+                      <p className="mt-1 truncate text-xs text-gray-500 md:text-sm">{stat.label}</p>
                     </div>
                   ))}
                 </div>
+
+                <DashboardOverviewContent
+                  orders={orders}
+                  defaultAddress={defaultAddress}
+                  user={user}
+                  wishlistCount={wishlistCount}
+                />
               </div>
             )}
 
@@ -522,6 +533,143 @@ export default function Dashboard() {
         onApply={applyAvatarCrop}
       />
     </>
+  );
+}
+
+const getOrderBadgeClass = (status) => {
+  if (status === 'delivered') return 'badge-success';
+  if (status === 'cancelled') return 'badge-danger';
+  return 'badge-warning';
+};
+
+function DashboardOverviewContent({ orders, defaultAddress, user, wishlistCount }) {
+  const recentOrders = orders.slice(0, 3);
+  const activeOrders = orders.filter(order => !['delivered', 'cancelled'].includes(order.status)).length;
+  const checklist = [
+    {
+      label: 'Account email',
+      detail: user?.email || 'Add a valid email address',
+      complete: Boolean(user?.email)
+    },
+    {
+      label: 'Delivery address',
+      detail: defaultAddress ? `${defaultAddress.city}, ${defaultAddress.state}` : 'Add a shipping address',
+      complete: Boolean(defaultAddress)
+    },
+    {
+      label: 'Wishlist',
+      detail: wishlistCount > 0 ? `${wishlistCount} saved item${wishlistCount === 1 ? '' : 's'}` : 'Save products for later',
+      complete: wishlistCount > 0
+    }
+  ];
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
+      <section className="card p-5">
+        <div className="mb-5 flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Recent Orders</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              {activeOrders > 0 ? `${activeOrders} active order${activeOrders === 1 ? '' : 's'} in progress` : 'Your latest purchases appear here.'}
+            </p>
+          </div>
+          <Link to="/orders" className="inline-flex items-center gap-1 text-sm font-semibold text-primary-600 hover:text-primary-700">
+            View all
+            <HiOutlineArrowRight size={16} />
+          </Link>
+        </div>
+
+        {recentOrders.length > 0 ? (
+          <div className="divide-y divide-gray-100 dark:divide-gray-800">
+            {recentOrders.map(order => (
+              <Link
+                key={order.id}
+                to={`/orders/${order.order_number}`}
+                className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{order.order_number}</p>
+                  <p className="mt-1 text-xs text-gray-500">{formatDate(order.created_at)}</p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-sm font-bold text-gray-900 dark:text-white">{formatPrice(order.total_amount)}</p>
+                  <span className={`badge mt-1 text-xs ${getOrderBadgeClass(order.status)}`}>{order.status}</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed border-gray-200 p-6 text-center dark:border-gray-800">
+            <HiOutlineShoppingBag size={34} className="mx-auto mb-3 text-gray-300" />
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-200">No orders yet</p>
+            <Link to="/shop" className="btn-primary mt-4 !px-4 !py-2 text-sm">Start Shopping</Link>
+          </div>
+        )}
+      </section>
+
+      <div className="grid gap-6">
+        <section className="card p-5">
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Delivery Snapshot</h2>
+              <p className="mt-1 text-sm text-gray-500">Default checkout details</p>
+            </div>
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30">
+              <HiOutlineLocationMarker size={20} />
+            </span>
+          </div>
+
+          {defaultAddress ? (
+            <div>
+              <p className="font-semibold text-gray-900 dark:text-white">{defaultAddress.full_name}</p>
+              <p className="mt-2 text-sm leading-6 text-gray-500">
+                {defaultAddress.street}, {defaultAddress.city}, {defaultAddress.state} - {defaultAddress.zip_code}
+              </p>
+              <p className="mt-1 text-sm text-gray-500">{defaultAddress.phone}</p>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">Add a delivery address to speed up checkout.</p>
+          )}
+
+          <Link to="/addresses" className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-primary-600 hover:text-primary-700">
+            Manage addresses
+            <HiOutlineArrowRight size={16} />
+          </Link>
+        </section>
+
+        <section className="card p-5">
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Account Checklist</h2>
+              <p className="mt-1 text-sm text-gray-500">Keep your shopping profile ready</p>
+            </div>
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-50 text-primary-600 dark:bg-primary-900/30">
+              <HiOutlineClock size={20} />
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {checklist.map(item => (
+              <div key={item.label} className="flex items-start gap-3">
+                <HiOutlineCheckCircle
+                  size={18}
+                  className={item.complete ? 'mt-0.5 shrink-0 text-emerald-500' : 'mt-0.5 shrink-0 text-gray-300'}
+                />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{item.label}</p>
+                  <p className="truncate text-xs text-gray-500">{item.detail}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <Link to="/wishlist" className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-primary-600 hover:text-primary-700">
+            Review wishlist
+            <HiOutlineHeart size={16} />
+          </Link>
+        </section>
+      </div>
+    </div>
   );
 }
 
