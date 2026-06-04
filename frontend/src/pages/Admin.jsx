@@ -143,6 +143,7 @@ export default function Admin() {
   const [updatingOrderId, setUpdatingOrderId] = useState(null);
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
+  const [quickActionsOpen, setQuickActionsOpen] = useState(false);
 
   const productRef = useRef(null);
   const manageProductsRef = useRef(null);
@@ -528,6 +529,7 @@ export default function Admin() {
 
   const handleQuickAction = (panel) => {
     setActivePanel(panel);
+    setQuickActionsOpen(false);
     if (panel === 'manageProducts') loadProducts();
     if (panel === 'manageCategories') loadCategories();
     if (panel === 'orders') loadOrders();
@@ -791,14 +793,43 @@ export default function Admin() {
   return (
     <div className="mx-auto w-full max-w-[1680px] px-4 py-6 sm:px-6 md:py-8 lg:px-8 2xl:px-10">
       <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)] 2xl:grid-cols-[320px_minmax(0,1fr)]">
-        <aside className="lg:sticky lg:top-24 lg:self-start">
-          <div className="card p-4 md:p-5">
+        <button
+          type="button"
+          className={`admin-quick-actions-trigger md:hidden ${quickActionsOpen ? 'is-open' : ''}`}
+          onClick={() => setQuickActionsOpen(true)}
+          aria-label="Open quick actions"
+          aria-expanded={quickActionsOpen}
+        >
+          <HiOutlineArrowRight size={22} />
+        </button>
+
+        {quickActionsOpen && (
+          <button
+            type="button"
+            className="admin-quick-actions-backdrop md:hidden"
+            onClick={() => setQuickActionsOpen(false)}
+            aria-label="Close quick actions"
+          />
+        )}
+
+        <aside className={`admin-quick-actions-shell lg:sticky lg:top-24 lg:self-start ${quickActionsOpen ? 'is-open' : ''}`}>
+          <div className="admin-quick-actions-panel card p-4 md:p-5">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <h3 className="font-semibold text-lg">Quick Actions</h3>
                 <p className="mt-1 text-sm text-gray-500">Admin tasks</p>
               </div>
-              <span className="badge-primary shrink-0">Tools</span>
+              <div className="flex items-center gap-2">
+                <span className="badge-primary shrink-0">Tools</span>
+                <button
+                  type="button"
+                  className="admin-quick-actions-close md:hidden"
+                  onClick={() => setQuickActionsOpen(false)}
+                  aria-label="Close quick actions"
+                >
+                  <HiOutlineX size={18} />
+                </button>
+              </div>
             </div>
             <div className="space-y-3">
               {quickActions.map(action => (

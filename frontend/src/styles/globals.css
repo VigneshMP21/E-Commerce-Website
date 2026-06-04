@@ -606,15 +606,15 @@
     }
 
     .navbar-logo-link {
-      margin-left: -1.35rem !important;
+      margin-left: 10px !important;
       flex: 1 1 auto !important;
       min-width: 0 !important;
       justify-content: flex-start !important;
     }
 
     .navbar-logo {
-      width: 7.15rem !important;
-      height: 2.85rem !important;
+      width: 60px !important;
+      height: 40px !important;
       max-width: 100% !important;
       object-fit: contain !important;
       object-position: left center !important;
@@ -937,6 +937,99 @@
 
     .footer-legal-links {
       gap: 0.9rem !important;
+    }
+  }
+
+  @media (max-width: 767.98px) {
+    .admin-quick-actions-trigger {
+      position: fixed;
+      top: 50%;
+      left: -22px;
+      z-index: 80;
+      display: flex;
+      width: 46px;
+      height: 46px;
+      align-items: center;
+      justify-content: flex-end;
+      border: 1px solid rgba(79, 70, 229, 0.24);
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.96);
+      color: #4f46e5;
+      padding-right: 0.45rem;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+      transform: translateY(-50%);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .admin-quick-actions-trigger:hover {
+      box-shadow: 0 14px 30px rgba(79, 70, 229, 0.22);
+      transform: translateY(-50%) translateX(3px);
+    }
+
+    .admin-quick-actions-trigger.is-open {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .dark .admin-quick-actions-trigger {
+      border-color: rgba(129, 140, 248, 0.28);
+      background: rgba(17, 24, 39, 0.96);
+      color: #a5b4fc;
+    }
+
+    .admin-quick-actions-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 70;
+      background: rgba(15, 23, 42, 0.36);
+      backdrop-filter: blur(2px);
+    }
+
+    .admin-quick-actions-shell {
+      position: fixed;
+      top: 4.75rem;
+      bottom: 1rem;
+      left: 0;
+      z-index: 75;
+      width: min(88vw, 360px);
+      max-width: calc(100vw - 2rem);
+      pointer-events: none;
+      transform: translateX(calc(-100% - 1rem));
+      transition: transform 0.28s ease;
+    }
+
+    .admin-quick-actions-shell.is-open {
+      pointer-events: auto;
+      transform: translateX(0);
+    }
+
+    .admin-quick-actions-panel {
+      height: 100%;
+      overflow-y: auto;
+      border-top-left-radius: 0 !important;
+      border-bottom-left-radius: 0 !important;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.2);
+    }
+
+    .admin-quick-actions-close {
+      display: flex;
+      width: 2rem;
+      height: 2rem;
+      align-items: center;
+      justify-content: center;
+      border-radius: 9999px;
+      color: #6b7280;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .admin-quick-actions-close:hover {
+      background: #f3f4f6;
+      color: #111827;
+    }
+
+    .dark .admin-quick-actions-close:hover {
+      background: #1f2937;
+      color: #f9fafb;
     }
   }
 }
