@@ -43,7 +43,7 @@ export default function Navbar() {
       <div className="container-custom">
         <div className="flex items-center justify-between h-16 md:h-20">
           {/* Mobile menu button */}
-          <button onClick={() => setMobileOpen(!mobileOpen)} className="lg:hidden p-2 -ml-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
+          <button onClick={() => setMobileOpen(!mobileOpen)} className="mobile-menu-toggle lg:hidden p-2 -ml-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
             {mobileOpen ? <HiOutlineX size={24} /> : <HiOutlineMenu size={24} />}
           </button>
 
@@ -52,7 +52,7 @@ export default function Navbar() {
             <img
               src={logo}
               alt="V Shop logo"
-              className="h-10 w-24 sm:h-14 sm:w-40 md:h-16 md:w-44 object-cover object-center"
+              className="navbar-logo h-10 w-24 sm:h-14 sm:w-40 md:h-16 md:w-44 object-cover object-center"
             />
           </Link>
 
@@ -67,24 +67,24 @@ export default function Navbar() {
           </nav>
 
           {/* Right section */}
-          <div className="flex items-center gap-2 md:gap-3">
+          <div className="navbar-actions flex items-center gap-2 md:gap-3">
             {/* Search */}
-            <button onClick={() => setSearchOpen(!searchOpen)} className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+            <button onClick={() => setSearchOpen(!searchOpen)} className="navbar-icon-button p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
               <HiOutlineSearch size={20} />
             </button>
 
             {/* Theme toggle */}
-            <button onClick={toggleTheme} className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+            <button onClick={toggleTheme} className="navbar-icon-button theme-toggle-button p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
               {dark ? <HiOutlineSun size={20} /> : <HiOutlineMoon size={20} />}
             </button>
 
             {/* Wishlist */}
-            <Link to="/wishlist" className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+            <Link to="/wishlist" className="navbar-icon-button p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
               <HiOutlineHeart size={20} />
             </Link>
 
             {/* Cart */}
-            <Link to="/cart" className="relative p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+            <Link to="/cart" className="navbar-icon-button relative p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
               <HiOutlineShoppingCart size={20} />
               {itemCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-primary-600 text-white text-xs font-bold rounded-full flex items-center justify-center">
@@ -123,7 +123,7 @@ export default function Navbar() {
                 )}
               </div>
             ) : (
-              <Link to="/login" className="btn-primary text-sm px-4 py-2 !rounded-lg">Sign In</Link>
+              <Link to="/login" className="mobile-signin-button btn-primary text-sm px-4 py-2 !rounded-lg">Sign In</Link>
             )}
           </div>
         </div>
@@ -161,6 +161,19 @@ export default function Navbar() {
                 {link.name}
               </Link>
             ))}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="mobile-sidebar-theme-item w-full items-center justify-between px-4 py-3 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+            >
+              <span className="flex items-center gap-3">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-300">
+                  {dark ? <HiOutlineSun size={18} /> : <HiOutlineMoon size={18} />}
+                </span>
+                {dark ? 'Light Mode' : 'Dark Mode'}
+              </span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Theme</span>
+            </button>
           </div>
         </div>
       )}

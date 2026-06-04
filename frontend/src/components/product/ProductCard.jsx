@@ -110,8 +110,8 @@ export default function ProductCard({ product, onWishlistChange }) {
         </div>
       </Link>
 
-      <div className="px-4 pb-4">
-        <button type="button" onClick={handleAddToCart} className="btn-primary w-full gap-2 !py-2.5 text-sm">
+      <div className="product-card-actions px-4 pb-4">
+        <button type="button" onClick={handleAddToCart} className="add-to-cart-button btn-primary w-full gap-2 !py-2.5 text-sm">
           <HiOutlineShoppingCart size={17} />
           Add to Cart
         </button>

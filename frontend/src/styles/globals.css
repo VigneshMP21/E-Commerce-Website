@@ -197,6 +197,294 @@
     @apply flex flex-col items-center gap-2 p-6 card-glass text-white text-center
            hover:bg-white/20 transition-all duration-300;
   }
+
+  .mobile-sidebar-theme-item {
+    display: none;
+  }
+
+  .footer-link-columns {
+    display: contents;
+  }
+
+  @media (max-width: 479.98px) {
+    html,
+    body,
+    #root {
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    .mobile-menu-toggle {
+      margin-left: -0.375rem;
+      padding: 0.375rem;
+    }
+
+    .navbar-logo {
+      width: 4.75rem;
+      height: 2rem;
+    }
+
+    .navbar-actions {
+      gap: 0.25rem;
+    }
+
+    .navbar-icon-button {
+      padding: 0.375rem;
+    }
+
+    .navbar-icon-button svg {
+      width: 1.1rem;
+      height: 1.1rem;
+    }
+
+    .theme-toggle-button {
+      display: none;
+    }
+
+    .mobile-sidebar-theme-item {
+      display: flex;
+    }
+
+    .mobile-signin-button {
+      padding: 0.4rem 0.55rem !important;
+      border-radius: 0.5rem !important;
+      font-size: 0.72rem;
+      line-height: 1rem;
+      white-space: nowrap;
+    }
+
+    .home-feature-section {
+      margin-top: -1.5rem;
+      padding-right: 0.5rem;
+      padding-bottom: 0.75rem;
+      padding-left: 0.5rem;
+    }
+
+    .home-feature-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.375rem;
+    }
+
+    .home-feature-card {
+      min-width: 0;
+      min-height: 5.4rem;
+      gap: 0.35rem;
+      border-radius: 0.75rem;
+      padding: 0.45rem 0.2rem;
+      box-shadow: 0 10px 22px rgba(30, 27, 75, 0.1);
+    }
+
+    .home-feature-icon {
+      width: 2rem;
+      height: 2rem;
+      border-radius: 0.65rem;
+    }
+
+    .home-feature-icon svg {
+      width: 1.05rem;
+      height: 1.05rem;
+    }
+
+    .home-feature-title {
+      max-width: 100%;
+      font-size: 0.64rem;
+      line-height: 0.78rem;
+    }
+
+    .home-feature-desc {
+      display: none;
+    }
+
+    .popular-products-header {
+      flex-direction: row;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .popular-products-title-block {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .popular-products-badge,
+    .popular-products-subtitle {
+      display: none;
+    }
+
+    .popular-products-title {
+      font-size: 1.05rem;
+      line-height: 1.2rem;
+    }
+
+    .popular-products-countdown {
+      flex: 0 0 auto;
+      flex-direction: row;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .popular-products-countdown-label {
+      font-size: 0.58rem;
+      line-height: 1;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .popular-products-countdown-label svg {
+      display: none;
+    }
+
+    .popular-products-countdown .countdown-timer {
+      gap: 0.1rem;
+    }
+
+    .popular-products-countdown .countdown-segment {
+      gap: 0.08rem;
+    }
+
+    .popular-products-countdown .countdown-cell {
+      min-width: 1.65rem;
+      border-radius: 0.4rem;
+      padding: 0.16rem 0.2rem;
+      box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
+    }
+
+    .popular-products-countdown .countdown-cell span:first-child {
+      font-size: 0.68rem;
+      line-height: 0.8rem;
+    }
+
+    .popular-products-countdown .countdown-cell span:last-child {
+      font-size: 0.4rem;
+      line-height: 0.5rem;
+      letter-spacing: 0.03em;
+    }
+
+    .popular-products-countdown .countdown-separator {
+      margin-top: 0;
+      font-size: 0.7rem;
+      line-height: 1;
+    }
+
+    .product-card-actions {
+      padding-right: 0.5rem;
+      padding-bottom: 0.55rem;
+      padding-left: 0.5rem;
+    }
+
+    .add-to-cart-button {
+      min-height: 2rem;
+      gap: 0.2rem;
+      border-radius: 0.5rem !important;
+      padding: 0.48rem 0.35rem !important;
+      font-size: 0.68rem;
+      line-height: 0.85rem;
+      white-space: nowrap;
+    }
+
+    .add-to-cart-button svg {
+      width: 0.8rem;
+      height: 0.8rem;
+      flex-shrink: 0;
+    }
+
+    .footer-service-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.4rem;
+      padding-top: 0.85rem;
+      padding-bottom: 0.85rem;
+    }
+
+    .footer-service-card {
+      min-width: 0;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 0.35rem;
+      text-align: center;
+    }
+
+    .footer-service-icon {
+      width: 2rem;
+      height: 2rem;
+      border-radius: 0.6rem;
+    }
+
+    .footer-service-icon svg {
+      width: 1rem;
+      height: 1rem;
+    }
+
+    .footer-service-title {
+      font-size: 0.62rem;
+      line-height: 0.75rem;
+    }
+
+    .footer-service-text {
+      display: none;
+    }
+
+    .footer-main-grid {
+      gap: 1.75rem;
+    }
+
+    .footer-main-grid > div:first-child {
+      text-align: center;
+    }
+
+    .footer-main-grid > div:first-child > a {
+      justify-content: center;
+    }
+
+    .footer-main-grid > div:first-child p {
+      margin-right: auto;
+      margin-left: auto;
+    }
+
+    .footer-social-links {
+      justify-content: center;
+      gap: 0.65rem;
+    }
+
+    .footer-social-link {
+      width: 2.25rem;
+      height: 2.25rem;
+    }
+
+    .footer-link-columns {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.65rem;
+      align-items: start;
+    }
+
+    .footer-column {
+      min-width: 0;
+      text-align: left;
+    }
+
+    .footer-column-title {
+      font-size: 0.65rem;
+      line-height: 0.8rem;
+      letter-spacing: 0.04em;
+    }
+
+    .footer-column ul {
+      margin-top: 0.65rem;
+    }
+
+    .footer-column ul > :not([hidden]) ~ :not([hidden]) {
+      margin-top: 0.45rem !important;
+    }
+
+    .footer-column a {
+      overflow-wrap: anywhere;
+      font-size: 0.68rem;
+      line-height: 0.9rem;
+    }
+  }
 }
 
 @layer utilities {

@@ -8,7 +8,7 @@ import {
   HiOutlineSupport,
   HiOutlineTruck
 } from 'react-icons/hi';
-import { FaCcApplePay, FaCcMastercard, FaCcPaypal, FaCcVisa, FaFacebookF, FaInstagram, FaLinkedinIn } from 'react-icons/fa';
+import { FaCcApplePay, FaCcMastercard, FaCcPaypal, FaCcVisa, FaGithub, FaInstagram, FaLinkedinIn, FaWhatsapp } from 'react-icons/fa';
 import logo from '../../assets/images/logo.png';
 
 const CONTACT_EMAIL = 'mpvignesh2107@gmail.com';
@@ -44,9 +44,10 @@ const footerLinks = {
 };
 
 const socialLinks = [
-  { name: 'Facebook', href: '#', icon: FaFacebookF },
   { name: 'Instagram', href: '#', icon: FaInstagram },
-  { name: 'LinkedIn', href: '#', icon: FaLinkedinIn }
+  { name: 'LinkedIn', href: '#', icon: FaLinkedinIn },
+  { name: 'GitHub', href: '#', icon: FaGithub },
+  { name: 'WhatsApp', href: '#', icon: FaWhatsapp }
 ];
 
 const paymentIcons = [
@@ -57,8 +58,8 @@ const paymentIcons = [
 ];
 
 const FooterColumn = ({ title, links }) => (
-  <div>
-    <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-900">{title}</h3>
+  <div className="footer-column">
+    <h3 className="footer-column-title text-sm font-semibold uppercase tracking-wider text-gray-900">{title}</h3>
     <ul className="mt-4 space-y-3">
       {links.map(link => (
         <li key={link.name}>
@@ -75,15 +76,15 @@ export default function Footer() {
   return (
     <footer className="border-t border-gray-100 bg-white text-gray-600">
       <div className="border-b border-gray-100 bg-primary-50/70">
-        <div className="container-custom grid gap-4 py-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="footer-service-grid container-custom grid gap-4 py-6 sm:grid-cols-2 lg:grid-cols-4">
           {serviceHighlights.map(item => (
-            <div key={item.title} className="flex items-start gap-3">
-              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border border-primary-100 bg-white text-primary-600 shadow-sm">
+            <div key={item.title} className="footer-service-card flex items-start gap-3">
+              <div className="footer-service-icon flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border border-primary-100 bg-white text-primary-600 shadow-sm">
                 <item.icon size={22} />
               </div>
               <div>
-                <p className="font-semibold text-gray-900">{item.title}</p>
-                <p className="mt-1 text-sm text-gray-500">{item.text}</p>
+                <p className="footer-service-title font-semibold text-gray-900">{item.title}</p>
+                <p className="footer-service-text mt-1 text-sm text-gray-500">{item.text}</p>
               </div>
             </div>
           ))}
@@ -91,7 +92,7 @@ export default function Footer() {
       </div>
 
       <div className="container-custom py-12 md:py-14">
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-[1.35fr_0.75fr_0.75fr_0.75fr_1.25fr]">
+        <div className="footer-main-grid grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-[1.35fr_0.75fr_0.75fr_0.75fr_1.25fr]">
           <div>
             <Link to="/" className="inline-flex items-center gap-3">
               <img src={logo} alt="V Shop logo" className="h-12 w-28 rounded-lg object-cover object-center" />
@@ -100,13 +101,13 @@ export default function Footer() {
               V Shop brings curated products, secure checkout and dependable delivery together in one professional e-commerce experience.
             </p>
 
-            <div className="mt-6 flex gap-3">
+            <div className="footer-social-links mt-6 flex gap-3">
               {socialLinks.map(link => (
                 <a
                   key={link.name}
                   href={link.href}
                   aria-label={link.name}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-600"
+                  className="footer-social-link flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition-colors hover:border-primary-300 hover:bg-primary-50 hover:text-primary-600"
                 >
                   <link.icon size={16} />
                 </a>
@@ -114,9 +115,11 @@ export default function Footer() {
             </div>
           </div>
 
-          <FooterColumn title="Shop" links={footerLinks.shop} />
-          <FooterColumn title="Account" links={footerLinks.account} />
-          <FooterColumn title="Company" links={footerLinks.company} />
+          <div className="footer-link-columns">
+            <FooterColumn title="Shop" links={footerLinks.shop} />
+            <FooterColumn title="Account" links={footerLinks.account} />
+            <FooterColumn title="Company" links={footerLinks.company} />
+          </div>
 
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-900">Contact</h3>

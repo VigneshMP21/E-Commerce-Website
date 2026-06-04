@@ -321,14 +321,14 @@ function CountdownTimer({ target }) {
   const { h, m, s } = useCountdown(target);
   const pad = (n) => String(n).padStart(2, '0');
   return (
-    <div className="flex items-center gap-2">
+    <div className="countdown-timer flex items-center gap-2">
       {[{ v: pad(h), l: 'HRS' }, { v: pad(m), l: 'MIN' }, { v: pad(s), l: 'SEC' }].map(({ v, l }, i) => (
-        <div key={l} className="flex items-center gap-2">
+        <div key={l} className="countdown-segment flex items-center gap-2">
           <div className="countdown-cell">
             <span className="text-xl font-black text-gray-900 dark:text-white tabular-nums tracking-tight">{v}</span>
             <span className="text-[9px] font-bold text-gray-400 tracking-widest">{l}</span>
           </div>
-          {i < 2 && <span className="text-xl font-bold text-primary-500 -mt-2">:</span>}
+          {i < 2 && <span className="countdown-separator text-xl font-bold text-primary-500 -mt-2">:</span>}
         </div>
       ))}
     </div>
@@ -442,8 +442,8 @@ export default function Home() {
       {/* ══════════════════════════════════
           FEATURE CARDS
       ══════════════════════════════════ */}
-      <section className="relative z-10 mx-auto -mt-12 max-w-6xl px-4 pb-6 pt-0 sm:-mt-14 sm:px-6 md:-mt-16 md:pb-8 lg:-mt-20 lg:px-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <section className="home-feature-section relative z-10 mx-auto -mt-12 max-w-6xl px-4 pb-6 pt-0 sm:-mt-14 sm:px-6 md:-mt-16 md:pb-8 lg:-mt-20 lg:px-8">
+        <div className="home-feature-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {features.map((f, i) => (
             <motion.div
               key={f.title}
@@ -452,13 +452,13 @@ export default function Home() {
               animate="visible"
               variants={fadeUp}
               whileHover={{ y: -4 }}
-              className="group flex min-h-[9.5rem] cursor-default flex-col items-center justify-center gap-3 rounded-2xl border border-white/70 bg-white/75 p-5 text-center shadow-xl shadow-primary-950/10 backdrop-blur-xl transition-all duration-300 hover:bg-white/90 dark:border-white/10 dark:bg-gray-950/65 dark:hover:bg-gray-900/80 md:p-6"
+              className="home-feature-card group flex min-h-[9.5rem] cursor-default flex-col items-center justify-center gap-3 rounded-2xl border border-white/70 bg-white/75 p-5 text-center shadow-xl shadow-primary-950/10 backdrop-blur-xl transition-all duration-300 hover:bg-white/90 dark:border-white/10 dark:bg-gray-950/65 dark:hover:bg-gray-900/80 md:p-6"
             >
-              <div className={`w-14 h-14 ${f.bg} rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
+              <div className={`home-feature-icon w-14 h-14 ${f.bg} rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
                 <f.icon size={26} className={f.iconColor} />
               </div>
-              <h3 className="font-bold text-sm md:text-base text-gray-900 dark:text-white">{f.title}</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{f.desc}</p>
+              <h3 className="home-feature-title font-bold text-sm md:text-base text-gray-900 dark:text-white">{f.title}</h3>
+              <p className="home-feature-desc text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{f.desc}</p>
             </motion.div>
           ))}
         </div>
@@ -469,9 +469,9 @@ export default function Home() {
       ══════════════════════════════════ */}
       <section className="container-custom pb-16 pt-8 md:pb-24 md:pt-10" ref={featRef}>
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
+        <div className="popular-products-header flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10">
+          <div className="popular-products-title-block">
+            <div className="popular-products-badge flex items-center gap-2 mb-2">
               <div className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-100 dark:bg-rose-900/30 rounded-full">
                 <HiOutlineLightningBolt size={16} className="text-rose-600 dark:text-rose-400" />
                 <span className="text-xs font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wider">
@@ -479,16 +479,16 @@ export default function Home() {
                 </span>
               </div>
             </div>
-            <h2 className="section-title">
+            <h2 className="popular-products-title section-title">
               Popular{' '}
               <span className="gradient-text">Products</span>
             </h2>
-            <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">
+            <p className="popular-products-subtitle text-gray-500 dark:text-gray-400 text-sm mt-2">
               Curated picks just for you — limited stock available
             </p>
           </div>
-          <div className="flex flex-col items-start sm:items-end gap-3">
-            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 font-medium">
+          <div className="popular-products-countdown flex flex-col items-start sm:items-end gap-3">
+            <div className="popular-products-countdown-label flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 font-medium">
               <HiOutlineFire size={18} className="text-rose-500" />
               Ends in
             </div>
