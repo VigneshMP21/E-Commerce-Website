@@ -74,7 +74,7 @@ export default function Navbar() {
             </button>
 
             {/* Theme toggle */}
-            <button onClick={toggleTheme} className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors mobile-hide-theme-toggle">
+            <button onClick={toggleTheme} className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
               {dark ? <HiOutlineSun size={20} /> : <HiOutlineMoon size={20} />}
             </button>
 
@@ -123,7 +123,7 @@ export default function Navbar() {
                 )}
               </div>
             ) : (
-              <Link to="/login" className="btn-primary text-sm px-4 py-2 !rounded-lg mobile-signin-btn">Sign In</Link>
+              <Link to="/login" className="btn-primary text-sm px-4 py-2 !rounded-lg">Sign In</Link>
             )}
           </div>
         </div>
@@ -161,20 +161,6 @@ export default function Navbar() {
                 {link.name}
               </Link>
             ))}
-
-            {/* Theme Toggle in Mobile Sidebar */}
-            <button
-              onClick={() => {
-                toggleTheme();
-              }}
-              className="w-full text-left flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors mobile-show-theme-toggle-sidebar"
-            >
-              <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                {dark ? <HiOutlineSun size={20} /> : <HiOutlineMoon size={20} />}
-                <span>Theme</span>
-              </div>
-              <span className="text-xs text-gray-500 dark:text-gray-400 capitalize">{dark ? 'Dark' : 'Light'}</span>
-            </button>
           </div>
         </div>
       )}

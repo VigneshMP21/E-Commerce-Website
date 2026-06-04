@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -71,13 +71,23 @@
   .badge {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
   }
-  .badge-primary { @apply badge bg-primary-100 text-primary-800 dark:bg-primary-900/50 dark:text-primary-300; }
-  .badge-success { @apply badge bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300; }
-  .badge-warning { @apply badge bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300; }
-  .badge-danger  { @apply badge bg-red-100   text-red-800   dark:bg-red-900/50   dark:text-red-300;   }
+  .badge-primary {
+    @apply badge bg-primary-100 text-primary-800 dark:bg-primary-900/50 dark:text-primary-300;
+  }
+  .badge-success {
+    @apply badge bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300;
+  }
+  .badge-warning {
+    @apply badge bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300;
+  }
+  .badge-danger {
+    @apply badge bg-red-100   text-red-800   dark:bg-red-900/50   dark:text-red-300;
+  }
 
   /* === Skeleton === */
-  .skeleton { @apply animate-pulse bg-gray-200 dark:bg-gray-800 rounded-lg; }
+  .skeleton {
+    @apply animate-pulse bg-gray-200 dark:bg-gray-800 rounded-lg;
+  }
 
   /* === Section typography === */
   .section-title {
@@ -96,7 +106,13 @@
   /* === Gradient text === */
   .gradient-text {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(135deg, #818cf8, #6366f1, #a855f7, #ec4899);
+    background-image: linear-gradient(
+      135deg,
+      #818cf8,
+      #6366f1,
+      #a855f7,
+      #ec4899
+    );
     background-size: 200% 200%;
     animation: gradientX 4s ease infinite;
   }
@@ -135,17 +151,28 @@
     @apply relative overflow-hidden;
   }
   .btn-shimmer::after {
-    content: '';
+    content: "";
     position: absolute;
-    top: 0; left: -100%;
-    width: 60%; height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+    top: 0;
+    left: -100%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.25),
+      transparent
+    );
     transform: skewX(-20deg);
     animation: shimmerMove 2.5s ease-in-out infinite;
   }
   @keyframes shimmerMove {
-    0%   { left: -100%; }
-    100% { left: 200%; }
+    0% {
+      left: -100%;
+    }
+    100% {
+      left: 200%;
+    }
   }
 
   /* === Floating particles === */
@@ -173,17 +200,21 @@
 }
 
 @layer utilities {
-  .text-balance { text-wrap: balance; }
+  .text-balance {
+    text-wrap: balance;
+  }
 
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 
   /* Noise overlay for texture */
   .noise-overlay::before {
-    content: '';
+    content: "";
     position: absolute;
     inset: 0;
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
@@ -209,17 +240,23 @@
   }
 
   .global-loader-orbit::before {
-    content: '';
+    content: "";
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    background:
-      conic-gradient(from 0deg, #4f46e5, #06b6d4, #f97316, #ec4899, #4f46e5);
+    background: conic-gradient(
+      from 0deg,
+      #4f46e5,
+      #06b6d4,
+      #f97316,
+      #ec4899,
+      #4f46e5
+    );
     animation: loaderRingSpin 1.15s linear infinite;
   }
 
   .global-loader-orbit::after {
-    content: '';
+    content: "";
     position: absolute;
     inset: 8px;
     border-radius: inherit;
@@ -250,11 +287,13 @@
   }
 
   @keyframes loadingTypeReveal {
-    0%, 12% {
+    0%,
+    12% {
       opacity: 0;
       transform: translateY(0.25rem);
     }
-    22%, 82% {
+    22%,
+    82% {
       opacity: 1;
       transform: translateY(0);
     }
@@ -262,184 +301,5 @@
       opacity: 0;
       transform: translateY(0);
     }
-  }
-}
-
-/* ==========================================
-   Mobile Responsive Enhancements (< 480px)
-   ========================================== */
-@media (max-width: 479px) {
-  /* 1. Feature Cards Alignment */
-  .mobile-feature-cards {
-    display: flex !important;
-    flex-direction: row !important;
-    overflow-x: auto !important;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    width: 100% !important;
-    max-width: 100% !important;
-    gap: 12px !important;
-    padding-bottom: 16px !important;
-  }
-  .mobile-feature-cards::-webkit-scrollbar {
-    display: none !important;
-  }
-  .mobile-feature-cards > div {
-    flex-shrink: 0 !important;
-    width: 240px !important;
-    scroll-snap-align: start;
-  }
-
-  /* 2. Header Improvements */
-  .mobile-signin-btn {
-    padding: 6px 12px !important;
-    font-size: 12px !important;
-    border-radius: 6px !important;
-    height: auto !important;
-  }
-  .mobile-hide-theme-toggle {
-    display: none !important;
-  }
-  .mobile-show-theme-toggle-sidebar {
-    display: flex !important;
-  }
-
-  /* 3. Popular Products Section Header */
-  .popular-products-header-container {
-    display: flex !important;
-    flex-direction: row !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    margin-bottom: 16px !important;
-    gap: 8px !important;
-  }
-  .mobile-hide-badge {
-    display: none !important;
-  }
-  .mobile-hide-desc {
-    display: none !important;
-  }
-  .mobile-left-title {
-    font-size: 1.25rem !important; /* text-xl */
-    line-height: 1.75rem !important;
-    margin: 0 !important;
-  }
-  .mobile-right-timer-area {
-    display: flex !important;
-    flex-direction: row !important;
-    align-items: center !important;
-    gap: 6px !important;
-  }
-  .mobile-ends-in-inline {
-    font-size: 0.75rem !important;
-    gap: 2px !important;
-    margin-bottom: 0 !important;
-  }
-  .mobile-ends-in-inline svg {
-    width: 14px !important;
-    height: 14px !important;
-  }
-  .countdown-cell {
-    min-w: 36px !important;
-    padding: 2px 4px !important;
-    border-radius: 6px !important;
-  }
-  .countdown-cell span:first-child {
-    font-size: 0.875rem !important; /* text-sm */
-    font-weight: 700 !important;
-  }
-  .countdown-cell span:last-child {
-    font-size: 7px !important;
-  }
-  .countdown-colon {
-    font-size: 0.875rem !important; /* text-sm */
-    margin-top: 0 !important;
-  }
-
-  /* 4. Product Card Button Optimization */
-  .product-card-add-btn {
-    padding-left: 8px !important;
-    padding-right: 8px !important;
-    font-size: 0.75rem !important; /* text-xs */
-    gap: 4px !important;
-    white-space: nowrap !important;
-  }
-  .product-card-add-btn svg {
-    width: 14px !important;
-    height: 14px !important;
-  }
-
-  /* 5. Contact Page - Service Cards Alignment */
-  .contact-page-footer .footer-service-cards {
-    display: flex !important;
-    flex-direction: row !important;
-    overflow-x: auto !important;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    width: 100% !important;
-    max-width: 100% !important;
-    gap: 16px !important;
-    padding-left: 16px !important;
-    padding-right: 16px !important;
-    padding-bottom: 8px !important;
-  }
-  .contact-page-footer .footer-service-cards::-webkit-scrollbar {
-    display: none !important;
-  }
-  .contact-page-footer .footer-service-cards > div {
-    flex-shrink: 0 !important;
-    width: 240px !important;
-    scroll-snap-align: start;
-  }
-
-  /* 6. Contact Page - Social Media Icons Update */
-  .contact-page-footer .footer-social-container {
-    justify-content: center !important;
-    align-items: center !important;
-    width: 100% !important;
-  }
-  .desktop-only-social {
-    display: none !important;
-  }
-
-  /* 7. Contact Page - Footer Information Layout */
-  .contact-page-footer .footer-cols-grid {
-    display: grid !important;
-    grid-template-columns: repeat(3, 1fr) !important;
-    gap: 20px !important;
-  }
-  .contact-page-footer .footer-brand-col {
-    grid-column: span 3 !important;
-    text-align: center !important;
-  }
-  .contact-page-footer .footer-shop-col,
-  .contact-page-footer .footer-account-col,
-  .contact-page-footer .footer-company-col {
-    grid-column: span 1 !important;
-    text-align: left !important;
-  }
-  .contact-page-footer .footer-contact-col {
-    grid-column: span 3 !important;
-    text-align: center !important;
-  }
-  .contact-page-footer .footer-contact-col a {
-    justify-content: center !important;
-  }
-
-  /* Hero section and feature section alignment tweaks */
-  .mobile-hide-hero {
-    display: none !important;
-  }
-  .mobile-feature-cards-section {
-    margin-top: 16px !important;
-  }
-}
-
-@media (min-width: 480px) {
-  .mobile-show-theme-toggle-sidebar {
-    display: none !important;
-  }
-  .mobile-only-social {
-    display: none !important;
   }
 }
