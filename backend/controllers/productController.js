@@ -21,24 +21,6 @@ const parseJsonArray = (value) => {
   }
 };
 
-const parseTextArray = (value) => {
-  if (!value) return [];
-  if (Array.isArray(value)) return value;
-
-  const jsonArray = parseJsonArray(value);
-  if (jsonArray.length) return jsonArray;
-
-  if (typeof value === 'string' && value.startsWith('{') && value.endsWith('}')) {
-    return value
-      .slice(1, -1)
-      .split(',')
-      .map(item => item.replace(/^"|"$/g, '').trim())
-      .filter(Boolean);
-  }
-
-  return [];
-};
-
 const sanitizeFileName = (fileName = 'image') => (
   String(fileName)
     .trim()
@@ -106,175 +88,28 @@ const applyReviewStats = (product) => {
   return product;
 };
 
+const getSearchPatterns = (value = '') => {
+  const normalized = String(value).trim();
+  if (!normalized) return [];
+
+  const variants = new Set([normalized]);
+  const slug = makeSlug(normalized);
+  if (slug) variants.add(slug);
+
+  if (normalized.length > 3 && normalized.toLowerCase().endsWith('s')) {
+    const singular = normalized.slice(0, -1);
+    variants.add(singular);
+
+    const singularSlug = makeSlug(singular);
+    if (singularSlug) variants.add(singularSlug);
+  }
+
+  return [...variants].map(term => `%${term}%`);
+};
+
 const addParam = (params, value) => {
   params.push(value);
   return `$${params.length}`;
-};
-
-const normalizeSearchTerm = (value = '') => String(value)
-  .trim()
-  .replace(/\s+/g, ' ')
-  .slice(0, 120);
-
-const normalizeTags = (value) => {
-  const tags = parseTextArray(value);
-  return [...new Set(tags
-    .map(tag => String(tag).trim())
-    .filter(Boolean)
-    .slice(0, 30))];
-};
-
-const parsePositiveInt = (value, fallback, max = 100) => {
-  const parsed = parseInt(value, 10);
-  if (Number.isNaN(parsed) || parsed < 1) return fallback;
-  return Math.min(parsed, max);
-};
-
-const escapeRegExp = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-const getSearchSessionId = (req) => {
-  const sessionId = req.get('x-search-session-id');
-  if (!sessionId || sessionId.length > 80) return null;
-  return /^[a-zA-Z0-9._:-]+$/.test(sessionId) ? sessionId : null;
-};
-
-const serializeProduct = (product) => {
-  applyReviewStats(product);
-  product.images = parseJsonArray(product.images);
-  product.specifications = parseJsonArray(product.specifications);
-  product.tags = parseTextArray(product.tags);
-  if (product.search_score !== undefined) product.search_score = Number(product.search_score || 0);
-  if (product.full_text_rank !== undefined) product.full_text_rank = Number(product.full_text_rank || 0);
-  if (product.fuzzy_rank !== undefined) product.fuzzy_rank = Number(product.fuzzy_rank || 0);
-  if (product.ctr !== undefined) product.ctr = Number(product.ctr || 0);
-  return product;
-};
-
-const getSearchCorrection = async (query) => {
-  const tokens = query.match(/[a-z0-9]+/gi)
-    ?.map(token => token.toLowerCase())
-    .filter(token => token.length > 2)
-    .slice(0, 8) || [];
-
-  if (!tokens.length) {
-    return { correctedQuery: null, corrections: [] };
-  }
-
-  const corrections = await db.query(
-    `WITH input_tokens AS (
-       SELECT token, ordinality
-       FROM unnest($1::text[]) WITH ORDINALITY AS tokens(token, ordinality)
-     ),
-     dictionary AS (
-       SELECT DISTINCT lower(trim(term)) as normalized_term, trim(term) as display_term
-       FROM (
-         SELECT brand as term FROM products WHERE brand IS NOT NULL AND is_active = true
-         UNION ALL
-         SELECT name as term FROM products WHERE is_active = true
-         UNION ALL
-         SELECT regexp_split_to_table(name, '[^[:alnum:]]+') as term FROM products WHERE is_active = true
-         UNION ALL
-         SELECT regexp_split_to_table(coalesce(brand, ''), '[^[:alnum:]]+') as term FROM products WHERE is_active = true
-         UNION ALL
-         SELECT c.name as term FROM categories c WHERE c.is_active = true
-         UNION ALL
-         SELECT regexp_split_to_table(c.name, '[^[:alnum:]]+') as term FROM categories c WHERE c.is_active = true
-         UNION ALL
-         SELECT unnest(tags) as term FROM products WHERE is_active = true
-       ) terms
-       WHERE term IS NOT NULL AND length(trim(term)) > 2
-     ),
-     best_matches AS (
-       SELECT DISTINCT ON (it.ordinality)
-         it.token,
-         it.ordinality,
-         d.display_term,
-         similarity(d.normalized_term, it.token) as score
-       FROM input_tokens it
-       JOIN dictionary d ON true
-       WHERE NOT EXISTS (
-         SELECT 1 FROM dictionary exact_terms
-         WHERE exact_terms.normalized_term = it.token
-       )
-       AND (
-         similarity(d.normalized_term, it.token) >= 0.36
-         OR d.normalized_term LIKE it.token || '%'
-       )
-       ORDER BY it.ordinality,
-         CASE WHEN d.normalized_term LIKE it.token || '%' THEN 1 ELSE 0 END DESC,
-         similarity(d.normalized_term, it.token) DESC,
-         length(d.display_term) ASC
-     )
-     SELECT token, display_term, score
-     FROM best_matches
-     WHERE score >= 0.36 OR lower(display_term) LIKE token || '%'
-     ORDER BY ordinality`,
-    [tokens]
-  );
-
-  if (!corrections.length) {
-    return { correctedQuery: null, corrections: [] };
-  }
-
-  let correctedQuery = query;
-  corrections.forEach(({ token, display_term: displayTerm }) => {
-    correctedQuery = correctedQuery.replace(new RegExp(`\\b${escapeRegExp(token)}\\b`, 'i'), displayTerm);
-  });
-
-  if (correctedQuery.toLowerCase() === query.toLowerCase()) {
-    return { correctedQuery: null, corrections: [] };
-  }
-
-  return { correctedQuery, corrections };
-};
-
-const recordSearchQuery = async (req, query, correctedQuery, resultCount) => {
-  try {
-    const sessionId = getSearchSessionId(req);
-    const normalizedQuery = query.toLowerCase();
-    const rows = await db.query(
-      `WITH inserted AS (
-         INSERT INTO search_queries (user_id, session_id, query, normalized_query, corrected_query, result_count)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         RETURNING id
-       ),
-       upserted AS (
-         INSERT INTO search_terms (normalized_query, display_query, search_count, result_count, last_searched_at)
-         VALUES ($4, $3, 1, $6, NOW())
-         ON CONFLICT (normalized_query) DO UPDATE SET
-           display_query = EXCLUDED.display_query,
-           search_count = search_terms.search_count + 1,
-           result_count = EXCLUDED.result_count,
-           last_searched_at = NOW()
-         RETURNING normalized_query
-       )
-       SELECT id FROM inserted`,
-      [req.user?.id || null, sessionId, query, normalizedQuery, correctedQuery || null, resultCount]
-    );
-
-    return rows[0]?.id || null;
-  } catch (error) {
-    console.warn('Search history write failed:', error.message);
-    return null;
-  }
-};
-
-const recordProductImpressions = async (productIds) => {
-  if (!productIds.length) return;
-
-  try {
-    await db.query(
-      `INSERT INTO product_search_metrics (product_id, impressions, last_impression_at)
-       SELECT unnest($1::int[]), 1, NOW()
-       ON CONFLICT (product_id) DO UPDATE SET
-         impressions = product_search_metrics.impressions + 1,
-         last_impression_at = NOW(),
-         updated_at = NOW()`,
-      [productIds]
-    );
-  } catch (error) {
-    console.warn('Search impression write failed:', error.message);
-  }
 };
 
 const getUniqueCategorySlug = async (name, excludeId = null) => {
@@ -307,15 +142,13 @@ const getUniqueCategorySlug = async (name, excludeId = null) => {
   return slug;
 };
 
-const listProducts = async (req, res, next) => {
+const getProducts = async (req, res, next) => {
   try {
     const {
-      category, minPrice, maxPrice,
+      category, search, minPrice, maxPrice,
       rating, sort, page = 1, limit = 12,
       featured, status = 'active'
     } = req.query;
-    const pageNumber = parsePositiveInt(page, 1, 100000);
-    const limitNumber = parsePositiveInt(limit, 12, 100);
 
     const productJoin = `FROM products p LEFT JOIN categories c ON p.category_id = c.id LEFT JOIN categories pc ON c.parent_id = pc.id ${reviewStatsJoin}`;
     let sql = `SELECT p.*, ${reviewRatingExpr} as computed_rating, ${reviewCountExpr} as computed_review_count, c.name as category_name, c.slug as category_slug ${productJoin} WHERE p.is_active = true`;
@@ -331,6 +164,30 @@ const listProducts = async (req, res, next) => {
     if (category) {
       sql += ` AND (c.slug = ${addParam(params, category)} OR c.parent_id = (SELECT id FROM categories WHERE slug = ${addParam(params, category)}))`;
       countSql += ` AND (c.slug = ${addParam(countParams, category)} OR c.parent_id = (SELECT id FROM categories WHERE slug = ${addParam(countParams, category)}))`;
+    }
+
+    const searchPatterns = getSearchPatterns(search);
+    if (searchPatterns.length) {
+      const searchFields = [
+        'p.name',
+        'p.description',
+        'p.short_description',
+        'p.brand',
+        'p.sku',
+        'c.name',
+        'c.slug',
+        'pc.name',
+        'pc.slug'
+      ];
+      const searchClause = searchPatterns
+        .flatMap(pattern => searchFields.map(field => `${field} ILIKE ${addParam(params, pattern)}`))
+        .join(' OR ');
+      const countSearchClause = searchPatterns
+        .flatMap(pattern => searchFields.map(field => `${field} ILIKE ${addParam(countParams, pattern)}`))
+        .join(' OR ');
+
+      sql += ` AND (${searchClause})`;
+      countSql += ` AND (${countSearchClause})`;
     }
 
     if (minPrice) {
@@ -359,437 +216,33 @@ const listProducts = async (req, res, next) => {
       'newest': 'p.created_at DESC',
       'popular': 'p.sales_count DESC',
       'rating': `${reviewRatingExpr} DESC`,
-      'relevance': 'p.created_at DESC',
       'name': 'p.name ASC'
     };
     sql += ' ORDER BY ' + (sortOptions[sort] || 'p.created_at DESC');
 
-    const offset = (pageNumber - 1) * limitNumber;
-    sql += ` LIMIT ${addParam(params, limitNumber)} OFFSET ${addParam(params, offset)}`;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    sql += ` LIMIT ${addParam(params, parseInt(limit))} OFFSET ${addParam(params, offset)}`;
 
     const products = await db.query(sql, params);
-    products.forEach(serializeProduct);
+    products.forEach(product => {
+      applyReviewStats(product);
+      product.images = parseJsonArray(product.images);
+      product.specifications = parseJsonArray(product.specifications);
+    });
 
     const countResult = await db.query(countSql, countParams);
-    const total = Number(countResult[0].total || 0);
+    const total = countResult[0].total;
 
     res.json({
       success: true,
       data: products,
       pagination: {
-        page: pageNumber,
-        limit: limitNumber,
+        page: parseInt(page),
+        limit: parseInt(limit),
         total,
-        pages: Math.ceil(total / limitNumber)
+        pages: Math.ceil(total / parseInt(limit))
       }
     });
-  } catch (error) {
-    next(error);
-  }
-};
-
-const searchProducts = async (req, res, next, searchTerm) => {
-  try {
-    const {
-      category, minPrice, maxPrice,
-      rating, sort, page = 1, limit = 12,
-      featured, status = 'active'
-    } = req.query;
-    const pageNumber = parsePositiveInt(page, 1, 100000);
-    const limitNumber = parsePositiveInt(limit, 12, 100);
-    const correction = await getSearchCorrection(searchTerm);
-    const effectiveSearch = correction.correctedQuery || searchTerm;
-
-    const createFilterClauses = (params) => {
-      const clauses = ['p.is_active = true'];
-
-      if (status === 'active') {
-        clauses.push(`p.status = ${addParam(params, 'active')}`);
-      }
-
-      if (category) {
-        clauses.push(`(c.slug = ${addParam(params, category)} OR pc.slug = ${addParam(params, category)} OR c.parent_id = (SELECT id FROM categories WHERE slug = ${addParam(params, category)}))`);
-      }
-
-      if (minPrice) {
-        clauses.push(`p.price >= ${addParam(params, parseFloat(minPrice))}`);
-      }
-
-      if (maxPrice) {
-        clauses.push(`p.price <= ${addParam(params, parseFloat(maxPrice))}`);
-      }
-
-      if (rating) {
-        clauses.push(`${reviewRatingExpr} >= ${addParam(params, parseFloat(rating))}`);
-      }
-
-      if (featured === 'true') {
-        clauses.push('p.is_featured = true');
-      }
-
-      clauses.push(`(
-        p.search_vector @@ si.tsq
-        OR to_tsvector('english', concat_ws(' ', c.name, c.slug, pc.name, pc.slug)) @@ si.tsq
-        OR lower(p.name) LIKE '%' || lower(si.original_query) || '%'
-        OR lower(p.name) LIKE '%' || lower(si.corrected_query) || '%'
-        OR lower(coalesce(p.brand, '')) LIKE '%' || lower(si.original_query) || '%'
-        OR lower(coalesce(p.brand, '')) LIKE '%' || lower(si.corrected_query) || '%'
-        OR lower(coalesce(c.name, '')) LIKE '%' || lower(si.corrected_query) || '%'
-        OR lower(coalesce(pc.name, '')) LIKE '%' || lower(si.corrected_query) || '%'
-        OR lower(array_to_string(coalesce(p.tags, '{}'::text[]), ' ')) LIKE '%' || lower(si.corrected_query) || '%'
-        OR lower(p.name) % lower(si.original_query)
-        OR lower(p.name) % lower(si.corrected_query)
-        OR lower(coalesce(p.brand, '')) % lower(si.original_query)
-        OR lower(coalesce(c.name, '')) % lower(si.original_query)
-        OR lower(array_to_string(coalesce(p.tags, '{}'::text[]), ' ')) % lower(si.original_query)
-      )`);
-
-      return clauses.join(' AND ');
-    };
-
-    const params = [searchTerm, effectiveSearch];
-    const countParams = [searchTerm, effectiveSearch];
-    const searchInput = `WITH search_input AS (
-      SELECT
-        $1::text as original_query,
-        $2::text as corrected_query,
-        websearch_to_tsquery('english', $2::text) as tsq
-    )`;
-    const productJoin = `FROM products p
-      LEFT JOIN categories c ON p.category_id = c.id
-      LEFT JOIN categories pc ON c.parent_id = pc.id
-      ${reviewStatsJoin}
-      LEFT JOIN product_search_metrics psm ON psm.product_id = p.id
-      CROSS JOIN search_input si`;
-    const whereSql = createFilterClauses(params);
-    const countWhereSql = createFilterClauses(countParams);
-    const fuzzyRankExpr = `GREATEST(
-      similarity(lower(p.name), lower(si.original_query)),
-      similarity(lower(p.name), lower(si.corrected_query)),
-      similarity(lower(coalesce(p.brand, '')), lower(si.original_query)),
-      similarity(lower(coalesce(p.brand, '')), lower(si.corrected_query)),
-      similarity(lower(coalesce(c.name, '')), lower(si.corrected_query)),
-      similarity(lower(coalesce(pc.name, '')), lower(si.corrected_query)),
-      similarity(lower(array_to_string(coalesce(p.tags, '{}'::text[]), ' ')), lower(si.corrected_query))
-    )`;
-    const scoreExpr = `(
-      CASE WHEN lower(p.name) IN (lower(si.original_query), lower(si.corrected_query)) THEN 120 ELSE 0 END
-      + CASE WHEN lower(coalesce(p.brand, '')) IN (lower(si.original_query), lower(si.corrected_query)) THEN 90 ELSE 0 END
-      + CASE WHEN lower(coalesce(c.name, '')) IN (lower(si.original_query), lower(si.corrected_query)) THEN 75 ELSE 0 END
-      + CASE WHEN lower(p.name) LIKE lower(si.corrected_query) || '%' THEN 60 ELSE 0 END
-      + CASE WHEN lower(p.name) LIKE '%' || lower(si.corrected_query) || '%' THEN 35 ELSE 0 END
-      + CASE WHEN lower(coalesce(p.brand, '')) LIKE '%' || lower(si.corrected_query) || '%' THEN 30 ELSE 0 END
-      + CASE WHEN lower(coalesce(c.name, '')) LIKE '%' || lower(si.corrected_query) || '%' THEN 25 ELSE 0 END
-      + (ts_rank(p.search_vector, si.tsq, 32) * 60)
-      + (ts_rank(to_tsvector('english', concat_ws(' ', c.name, pc.name)), si.tsq, 32) * 25)
-      + (${fuzzyRankExpr} * 35)
-      + (LEAST(COALESCE(p.popularity_score, 0), 100) * 0.15)
-      + (LEAST(COALESCE(p.sales_count, 0), 10000) * 0.002)
-      + (COALESCE(${reviewRatingExpr}, 0) * 2)
-      + (LEAST(COALESCE(psm.ctr, 0), 1) * 15)
-      + CASE WHEN p.is_featured THEN 3 ELSE 0 END
-    )`;
-
-    const sortOptions = {
-      'relevance': `search_score DESC, p.created_at DESC`,
-      'price_asc': `p.price ASC, search_score DESC`,
-      'price_desc': `p.price DESC, search_score DESC`,
-      'newest': `p.created_at DESC, search_score DESC`,
-      'popular': `p.sales_count DESC, search_score DESC`,
-      'rating': `${reviewRatingExpr} DESC, search_score DESC`,
-      'name': `p.name ASC, search_score DESC`
-    };
-    const orderBy = sortOptions[sort || 'relevance'] || sortOptions.relevance;
-
-    const offset = (pageNumber - 1) * limitNumber;
-    const sql = `${searchInput}
-      SELECT p.*, ${reviewRatingExpr} as computed_rating, ${reviewCountExpr} as computed_review_count,
-        c.name as category_name, c.slug as category_slug,
-        ts_rank(p.search_vector, si.tsq, 32) as full_text_rank,
-        ${fuzzyRankExpr} as fuzzy_rank,
-        COALESCE(psm.ctr, 0) as ctr,
-        ${scoreExpr} as search_score
-      ${productJoin}
-      WHERE ${whereSql}
-      ORDER BY ${orderBy}
-      LIMIT ${addParam(params, limitNumber)} OFFSET ${addParam(params, offset)}`;
-
-    const countSql = `${searchInput}
-      SELECT COUNT(*)::int as total
-      ${productJoin}
-      WHERE ${countWhereSql}`;
-
-    const [products, countResult] = await Promise.all([
-      db.query(sql, params),
-      db.query(countSql, countParams)
-    ]);
-    const total = Number(countResult[0]?.total || 0);
-    const searchId = await recordSearchQuery(req, searchTerm, correction.correctedQuery, total);
-
-    products.forEach(product => {
-      serializeProduct(product);
-      product.search_id = searchId;
-      product.search_query = searchTerm;
-      product.corrected_search = correction.correctedQuery;
-      product.highlight_query = effectiveSearch;
-    });
-
-    await recordProductImpressions(products.map(product => product.id));
-
-    res.json({
-      success: true,
-      data: products,
-      pagination: {
-        page: pageNumber,
-        limit: limitNumber,
-        total,
-        pages: Math.ceil(total / limitNumber)
-      },
-      search: {
-        query: searchTerm,
-        correctedQuery: correction.correctedQuery,
-        usedQuery: effectiveSearch,
-        searchId
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-const getProducts = async (req, res, next) => {
-  const searchTerm = normalizeSearchTerm(req.query.search);
-  if (searchTerm) {
-    return searchProducts(req, res, next, searchTerm);
-  }
-  return listProducts(req, res, next);
-};
-
-const getSearchHistoryData = async (req, limit = 8) => {
-  const sessionId = getSearchSessionId(req);
-  const ownerValue = req.user?.id || sessionId;
-  const ownerColumn = req.user?.id ? 'user_id' : 'session_id';
-  const recentSearches = ownerValue
-    ? await db.query(
-      `SELECT query, corrected_query, result_count, created_at
-       FROM (
-         SELECT DISTINCT ON (normalized_query)
-           query, corrected_query, result_count, created_at
-         FROM search_queries
-         WHERE ${ownerColumn} = $1
-         ORDER BY normalized_query, created_at DESC
-       ) recent
-       ORDER BY created_at DESC
-       LIMIT $2`,
-      [ownerValue, limit]
-    )
-    : [];
-
-  const recentItems = ownerValue
-    ? await db.query(
-      `SELECT *
-       FROM (
-         SELECT DISTINCT ON (r.product_id)
-           p.id, p.name, p.slug, p.images, p.price, r.query, r.searched_at
-         FROM recently_searched_items r
-         JOIN products p ON p.id = r.product_id
-         WHERE r.${ownerColumn} = $1 AND p.is_active = true
-         ORDER BY r.product_id, r.searched_at DESC
-       ) recent
-       ORDER BY searched_at DESC
-       LIMIT $2`,
-      [ownerValue, limit]
-    )
-    : [];
-
-  const trendingSearches = await db.query(
-    `SELECT display_query as query, search_count, result_count, last_searched_at
-     FROM search_terms
-     ORDER BY search_count DESC, last_searched_at DESC
-     LIMIT $1`,
-    [limit]
-  );
-
-  recentItems.forEach(item => {
-    item.images = parseJsonArray(item.images);
-  });
-
-  return { recentSearches, recentItems, trendingSearches };
-};
-
-const getSearchHistory = async (req, res, next) => {
-  try {
-    const limit = parsePositiveInt(req.query.limit, 8, 20);
-    const data = await getSearchHistoryData(req, limit);
-    res.json({ success: true, data });
-  } catch (error) {
-    next(error);
-  }
-};
-
-const getTrendingSearches = async (req, res, next) => {
-  try {
-    const limit = parsePositiveInt(req.query.limit, 8, 20);
-    const trendingSearches = await db.query(
-      `SELECT display_query as query, search_count, result_count, last_searched_at
-       FROM search_terms
-       ORDER BY search_count DESC, last_searched_at DESC
-       LIMIT $1`,
-      [limit]
-    );
-
-    res.json({ success: true, data: trendingSearches });
-  } catch (error) {
-    next(error);
-  }
-};
-
-const getSearchSuggestions = async (req, res, next) => {
-  try {
-    const query = normalizeSearchTerm(req.query.q);
-    const limit = parsePositiveInt(req.query.limit, 8, 12);
-
-    if (!query) {
-      const history = await getSearchHistoryData(req, limit);
-      return res.json({
-        success: true,
-        data: {
-          suggestions: [],
-          ...history
-        }
-      });
-    }
-
-    const correction = await getSearchCorrection(query);
-    const effectiveQuery = correction.correctedQuery || query;
-
-    const [productRows, brandRows, categoryRows, tagRows, historyRows] = await Promise.all([
-      db.query(
-        `SELECT 'product' as type, p.name as text, p.slug, p.images, c.name as category_name,
-          (
-            CASE WHEN lower(p.name) = lower($1) THEN 120 ELSE 0 END
-            + CASE WHEN lower(p.name) LIKE lower($1) || '%' THEN 50 ELSE 0 END
-            + (ts_rank(p.search_vector, websearch_to_tsquery('english', $2), 32) * 40)
-            + (GREATEST(similarity(lower(p.name), lower($1)), similarity(lower(p.name), lower($2))) * 35)
-            + (LEAST(COALESCE(p.sales_count, 0), 1000) * 0.01)
-          ) as score
-         FROM products p
-         LEFT JOIN categories c ON c.id = p.category_id
-         WHERE p.is_active = true AND p.status = 'active'
-           AND (
-             p.search_vector @@ websearch_to_tsquery('english', $2)
-             OR lower(p.name) LIKE '%' || lower($1) || '%'
-             OR lower(p.name) LIKE '%' || lower($2) || '%'
-             OR lower(p.name) % lower($1)
-           )
-         ORDER BY score DESC, p.sales_count DESC
-         LIMIT $3`,
-        [query, effectiveQuery, limit]
-      ),
-      db.query(
-        `SELECT 'brand' as type, brand as text, NULL::text as slug, NULL::jsonb as images, NULL::text as category_name,
-          (90 + similarity(lower(brand), lower($1)) * 30 + COUNT(*) * 0.2) as score
-         FROM products
-         WHERE brand IS NOT NULL AND is_active = true
-           AND (lower(brand) LIKE '%' || lower($1) || '%' OR lower(brand) % lower($1))
-         GROUP BY brand
-         ORDER BY score DESC
-         LIMIT $2`,
-        [query, limit]
-      ),
-      db.query(
-        `SELECT 'category' as type, c.name as text, c.slug, NULL::jsonb as images, NULL::text as category_name,
-          (80 + similarity(lower(c.name), lower($1)) * 25) as score
-         FROM categories c
-         WHERE c.is_active = true
-           AND (lower(c.name) LIKE '%' || lower($1) || '%' OR lower(c.name) % lower($1))
-         ORDER BY score DESC
-         LIMIT $2`,
-        [query, limit]
-      ),
-      db.query(
-        `SELECT 'tag' as type, tag as text, NULL::text as slug, NULL::jsonb as images, NULL::text as category_name,
-          (70 + similarity(lower(tag), lower($1)) * 20 + COUNT(*) * 0.2) as score
-         FROM products p
-         CROSS JOIN LATERAL unnest(p.tags) tag
-         WHERE p.is_active = true
-           AND (lower(tag) LIKE '%' || lower($1) || '%' OR lower(tag) % lower($1))
-         GROUP BY tag
-         ORDER BY score DESC
-         LIMIT $2`,
-        [query, limit]
-      ),
-      db.query(
-        `SELECT 'search' as type, display_query as text, NULL::text as slug, NULL::jsonb as images,
-          NULL::text as category_name,
-          (55 + similarity(lower(display_query), lower($1)) * 20 + LEAST(search_count, 1000) * 0.02) as score
-         FROM search_terms
-         WHERE lower(display_query) LIKE '%' || lower($1) || '%'
-           OR lower(display_query) % lower($1)
-         ORDER BY score DESC, search_count DESC
-         LIMIT $2`,
-        [query, limit]
-      )
-    ]);
-
-    const seen = new Set();
-    const suggestions = [...productRows, ...brandRows, ...categoryRows, ...tagRows, ...historyRows]
-      .map(row => ({
-        ...row,
-        images: parseJsonArray(row.images),
-        score: Number(row.score || 0)
-      }))
-      .sort((a, b) => b.score - a.score)
-      .filter(row => {
-        const key = `${row.type}:${String(row.text).toLowerCase()}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      .slice(0, limit);
-
-    res.json({
-      success: true,
-      data: {
-        suggestions,
-        correctedQuery: correction.correctedQuery,
-        corrections: correction.corrections
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-const recordSearchClick = async (req, res, next) => {
-  try {
-    const productId = parseInt(req.body.productId, 10);
-    const parsedSearchId = req.body.searchId ? parseInt(req.body.searchId, 10) : null;
-    const searchId = Number.isNaN(parsedSearchId) ? null : parsedSearchId;
-    const query = normalizeSearchTerm(req.body.query);
-    const sessionId = getSearchSessionId(req);
-
-    if (Number.isNaN(productId)) {
-      throw new AppError('Valid product id is required', 400);
-    }
-
-    await db.query(
-      `INSERT INTO product_search_metrics (product_id, clicks, last_click_at)
-       VALUES ($1, 1, NOW())
-       ON CONFLICT (product_id) DO UPDATE SET
-         clicks = product_search_metrics.clicks + 1,
-         last_click_at = NOW(),
-         updated_at = NOW()`,
-      [productId]
-    );
-
-    await db.query(
-      `INSERT INTO recently_searched_items (user_id, session_id, product_id, search_query_id, query)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [req.user?.id || null, sessionId, productId, searchId, query || null]
-    );
-
-    res.json({ success: true, message: 'Search click recorded' });
   } catch (error) {
     next(error);
   }
@@ -871,21 +324,20 @@ const createProduct = async (req, res, next) => {
     const {
       name, slug, description, shortDescription, price, comparePrice,
       categoryId, brand, stockQuantity, sku, images, specifications,
-      isFeatured, status, discountPercent, taxRate, tags, popularityScore
+      isFeatured, status, discountPercent, taxRate
     } = req.body;
 
     const result = await db.query(
       `INSERT INTO products (name, slug, description, short_description, price, compare_price,
         category_id, brand, stock_quantity, sku, images, specifications, is_featured, status,
-        discount_percent, tax_rate, tags, popularity_score)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+        discount_percent, tax_rate)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
        RETURNING id`,
       [name, slug, description, shortDescription, price, comparePrice,
         categoryId, brand, stockQuantity, sku,
         images ? JSON.stringify(images) : null,
         specifications ? JSON.stringify(specifications) : null,
-        isFeatured || false, status || 'active', discountPercent || 0, taxRate || 0,
-        normalizeTags(tags), popularityScore || 0]
+        isFeatured || false, status || 'active', discountPercent || 0, taxRate || 0]
     );
 
     res.status(201).json({
@@ -1112,7 +564,7 @@ const updateProduct = async (req, res, next) => {
       price: 'price', comparePrice: 'compare_price', categoryId: 'category_id',
       brand: 'brand', stockQuantity: 'stock_quantity', sku: 'sku',
       isFeatured: 'is_featured', status: 'status', discountPercent: 'discount_percent',
-      taxRate: 'tax_rate', popularityScore: 'popularity_score'
+      taxRate: 'tax_rate'
     };
 
     for (const [key, dbField] of Object.entries(fieldMap)) {
@@ -1127,10 +579,6 @@ const updateProduct = async (req, res, next) => {
 
     if (updates.specifications) {
       fields.push(`specifications = ${addParam(values, JSON.stringify(updates.specifications))}`);
-    }
-
-    if (updates.tags !== undefined) {
-      fields.push(`tags = ${addParam(values, normalizeTags(updates.tags))}`);
     }
 
     if (fields.length === 0) {
@@ -1202,6 +650,5 @@ const getFeaturedProducts = async (req, res, next) => {
 module.exports = {
   getProducts, getProductBySlug, createProduct, updateProduct, deleteProduct,
   getCategories, getFeaturedProducts, createCategory, updateCategory, deleteCategory,
-  uploadProductImages, getSearchSuggestions, getSearchHistory, getTrendingSearches,
-  recordSearchClick
+  uploadProductImages
 };

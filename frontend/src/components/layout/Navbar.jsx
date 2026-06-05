@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   HiOutlineMenu,
@@ -13,17 +13,11 @@ import {
   HiOutlineShoppingBag,
   HiOutlineLocationMarker,
   HiOutlineShieldCheck,
-  HiOutlineLogout,
-  HiOutlineClock,
-  HiOutlineTrendingUp,
-  HiOutlineTag,
-  HiOutlineCube
+  HiOutlineLogout
 } from 'react-icons/hi';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 import { useTheme } from '../../context/ThemeContext';
-import api from '../../services/api';
-import { getImageUrl } from '../../utils/helpers';
 import logo from '../../assets/images/logo.png';
 
 const navLinks = [
@@ -37,93 +31,19 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [suggestions, setSuggestions] = useState([]);
-  const [suggestionCorrection, setSuggestionCorrection] = useState('');
-  const [suggestionLoading, setSuggestionLoading] = useState(false);
-  const [searchMeta, setSearchMeta] = useState({
-    recentSearches: [],
-    recentItems: [],
-    trendingSearches: []
-  });
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { user, logout } = useAuth();
   const { itemCount } = useCart();
   const { dark, toggleTheme } = useTheme();
   const navigate = useNavigate();
-  const searchInputRef = useRef(null);
-
-  useEffect(() => {
-    if (!searchOpen) return undefined;
-
-    let active = true;
-    api.get('/products/search/history', { params: { limit: 6 } })
-      .then(res => {
-        if (active) {
-          setSearchMeta({
-            recentSearches: res.data.data?.recentSearches || [],
-            recentItems: res.data.data?.recentItems || [],
-            trendingSearches: res.data.data?.trendingSearches || []
-          });
-        }
-      })
-      .catch(() => {});
-
-    return () => {
-      active = false;
-    };
-  }, [searchOpen]);
-
-  useEffect(() => {
-    const query = searchQuery.trim();
-    if (!searchOpen || query.length < 2) {
-      setSuggestions([]);
-      setSuggestionCorrection('');
-      setSuggestionLoading(false);
-      return undefined;
-    }
-
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => {
-      setSuggestionLoading(true);
-      api.get('/products/search/suggestions', {
-        params: { q: query, limit: 8 },
-        signal: controller.signal
-      })
-        .then(res => {
-          setSuggestions(res.data.data?.suggestions || []);
-          setSuggestionCorrection(res.data.data?.correctedQuery || '');
-        })
-        .catch(err => {
-          if (err.code !== 'ERR_CANCELED') {
-            setSuggestions([]);
-          }
-        })
-        .finally(() => setSuggestionLoading(false));
-    }, 240);
-
-    return () => {
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  }, [searchOpen, searchQuery]);
-
-  const closeSearch = () => {
-    setSearchOpen(false);
-    setSearchQuery('');
-    setSuggestions([]);
-    setSuggestionCorrection('');
-  };
-
-  const runSearch = (value = searchQuery) => {
-    const query = value.trim();
-    if (!query) return;
-    navigate(`/shop?search=${encodeURIComponent(query)}`);
-    closeSearch();
-  };
 
   const handleSearch = (e) => {
     e.preventDefault();
-    runSearch();
+    if (searchQuery.trim()) {
+      navigate(`/shop?search=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchOpen(false);
+      setSearchQuery('');
+    }
   };
 
   const handleLogout = () => {
@@ -131,38 +51,6 @@ export default function Navbar() {
     setUserMenuOpen(false);
     navigate('/', { replace: true });
   };
-
-  const openSearch = () => {
-    if (searchOpen) {
-      closeSearch();
-      return;
-    }
-
-    setSearchOpen(true);
-    setMobileOpen(false);
-    window.setTimeout(() => searchInputRef.current?.focus(), 0);
-  };
-
-  const handleRecentItemClick = (item) => {
-    closeSearch();
-    navigate(`/product/${item.slug}`);
-  };
-
-  const suggestionIcon = (type) => {
-    if (type === 'product') return <HiOutlineCube size={17} />;
-    if (type === 'brand' || type === 'tag') return <HiOutlineTag size={17} />;
-    if (type === 'category') return <HiOutlineShoppingBag size={17} />;
-    return <HiOutlineSearch size={17} />;
-  };
-
-  const hasEmptyStateSuggestions = searchMeta.recentSearches.length
-    || searchMeta.recentItems.length
-    || searchMeta.trendingSearches.length;
-  const showSuggestionPanel = searchOpen && (
-    searchQuery.trim().length >= 2
-      ? (suggestionCorrection || suggestions.length || suggestionLoading)
-      : hasEmptyStateSuggestions
-  );
 
   return (
     <header className="sticky top-0 z-50 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800">
@@ -195,7 +83,7 @@ export default function Navbar() {
           {/* Right section */}
           <div className="navbar-actions flex items-center gap-2 md:gap-3">
             {/* Search */}
-            <button onClick={openSearch} className="navbar-icon-button p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+            <button onClick={() => setSearchOpen(!searchOpen)} className="navbar-icon-button p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
               <HiOutlineSearch size={20} />
             </button>
 
@@ -282,124 +170,14 @@ export default function Navbar() {
         <div className="border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950 animate-slide-down">
           <div className="container-custom py-4">
             <form onSubmit={handleSearch} className="flex gap-3">
-              <div className="relative flex-1">
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Search products, brands, categories..."
-                  className="input-field"
-                  autoFocus
-                />
-
-                {showSuggestionPanel && (
-                  <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-xl border border-gray-100 bg-white shadow-xl dark:border-gray-800 dark:bg-gray-900">
-                    {searchQuery.trim().length >= 2 ? (
-                      <div className="py-2">
-                        {suggestionCorrection && suggestionCorrection.toLowerCase() !== searchQuery.trim().toLowerCase() && (
-                          <button
-                            type="button"
-                            onClick={() => runSearch(suggestionCorrection)}
-                            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
-                          >
-                            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-300">
-                              <HiOutlineSearch size={17} />
-                            </span>
-                            <span className="min-w-0">
-                              <span className="block font-medium">Search for {suggestionCorrection}</span>
-                              <span className="block text-xs text-gray-500">Corrected spelling</span>
-                            </span>
-                          </button>
-                        )}
-
-                        {suggestions.map(suggestion => (
-                          <button
-                            key={`${suggestion.type}-${suggestion.text}-${suggestion.slug || ''}`}
-                            type="button"
-                            onClick={() => runSearch(suggestion.text)}
-                            className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
-                          >
-                            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-300">
-                              {suggestion.images?.length ? (
-                                <img src={getImageUrl(suggestion.images)} alt="" className="h-full w-full object-cover" />
-                              ) : suggestionIcon(suggestion.type)}
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate font-medium">{suggestion.text}</span>
-                              <span className="block truncate text-xs capitalize text-gray-500">
-                                {suggestion.type}{suggestion.category_name ? ` in ${suggestion.category_name}` : ''}
-                              </span>
-                            </span>
-                          </button>
-                        ))}
-
-                        {suggestionLoading && !suggestions.length && (
-                          <div className="px-4 py-3 text-sm text-gray-500">Searching...</div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="py-2">
-                        {searchMeta.recentSearches.length > 0 && (
-                          <div className="border-b border-gray-100 py-2 dark:border-gray-800">
-                            <div className="px-4 pb-1 text-xs font-semibold uppercase text-gray-400">Recent searches</div>
-                            {searchMeta.recentSearches.map(item => (
-                              <button
-                                key={`${item.query}-${item.created_at}`}
-                                type="button"
-                                onClick={() => runSearch(item.corrected_query || item.query)}
-                                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
-                              >
-                                <HiOutlineClock size={17} className="text-gray-400" />
-                                <span className="truncate">{item.corrected_query || item.query}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-
-                        {searchMeta.recentItems.length > 0 && (
-                          <div className="border-b border-gray-100 py-2 dark:border-gray-800">
-                            <div className="px-4 pb-1 text-xs font-semibold uppercase text-gray-400">Recently searched items</div>
-                            {searchMeta.recentItems.map(item => (
-                              <button
-                                key={`${item.id}-${item.searched_at}`}
-                                type="button"
-                                onClick={() => handleRecentItemClick(item)}
-                                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
-                              >
-                                <span className="h-9 w-9 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
-                                  <img src={getImageUrl(item.images)} alt="" className="h-full w-full object-cover" />
-                                </span>
-                                <span className="min-w-0">
-                                  <span className="block truncate font-medium">{item.name}</span>
-                                  {item.query && <span className="block truncate text-xs text-gray-500">{item.query}</span>}
-                                </span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-
-                        {searchMeta.trendingSearches.length > 0 && (
-                          <div className="py-2">
-                            <div className="px-4 pb-1 text-xs font-semibold uppercase text-gray-400">Trending searches</div>
-                            {searchMeta.trendingSearches.map(item => (
-                              <button
-                                key={item.query}
-                                type="button"
-                                onClick={() => runSearch(item.query)}
-                                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-800"
-                              >
-                                <HiOutlineTrendingUp size={17} className="text-gray-400" />
-                                <span className="truncate">{item.query}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search products or categories..."
+                className="input-field flex-1"
+                autoFocus
+              />
               <button type="submit" className="btn-primary">
                 <HiOutlineSearch size={20} />
               </button>

@@ -7,7 +7,6 @@ import ProductSkeleton from '../components/ui/Skeleton';
 import Breadcrumb from '../components/ui/Breadcrumb';
 
 const sortOptions = [
-  { value: 'relevance', label: 'Relevance' },
   { value: 'newest', label: 'Newest' },
   { value: 'price_asc', label: 'Price: Low to High' },
   { value: 'price_desc', label: 'Price: High to Low' },
@@ -21,12 +20,10 @@ export default function Shop() {
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
   const [showFilters, setShowFilters] = useState(false);
-  const [searchInfo, setSearchInfo] = useState(null);
 
   const category = searchParams.get('category') || '';
   const search = searchParams.get('search') || '';
-  const requestedSort = searchParams.get('sort') || '';
-  const sort = !search && requestedSort === 'relevance' ? 'newest' : requestedSort || (search ? 'relevance' : 'newest');
+  const sort = searchParams.get('sort') || 'newest';
   const minPrice = searchParams.get('minPrice') || '';
   const maxPrice = searchParams.get('maxPrice') || '';
   const page = searchParams.get('page') || '1';
@@ -43,7 +40,6 @@ export default function Shop() {
       .then(res => {
         setProducts(res.data.data);
         setPagination(res.data.pagination);
-        setSearchInfo(res.data.search || null);
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -58,8 +54,6 @@ export default function Shop() {
   };
 
   const clearFilters = () => setSearchParams({});
-  const visibleSortOptions = search ? sortOptions : sortOptions.filter(option => option.value !== 'relevance');
-  const highlightQuery = searchInfo?.usedQuery || searchInfo?.correctedQuery || search;
 
   return (
     <div className="mx-auto w-full max-w-[1680px] px-4 py-6 sm:px-6 md:py-8 lg:px-8 2xl:px-10">
@@ -74,16 +68,11 @@ export default function Shop() {
             {search ? `Results for "${search}"` : category ? category.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'All Products'}
           </h1>
           <p className="text-sm text-gray-500 mt-1">{pagination.total} products found</p>
-          {searchInfo?.correctedQuery && searchInfo.correctedQuery.toLowerCase() !== search.toLowerCase() && (
-            <p className="mt-1 text-sm text-gray-500">
-              Showing results for <span className="font-medium text-gray-900 dark:text-gray-100">{searchInfo.correctedQuery}</span>
-            </p>
-          )}
         </div>
         <div className="flex items-center gap-3">
           <select value={sort} onChange={e => updateParams('sort', e.target.value)}
             className="input-field text-sm !py-2 !w-auto">
-            {visibleSortOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            {sortOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           <button onClick={() => setShowFilters(!showFilters)} className="btn-secondary !px-3 !py-2 lg:hidden">
             <HiOutlineAdjustments size={20} />
@@ -139,7 +128,7 @@ export default function Shop() {
           ) : products.length > 0 ? (
             <>
               <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6 xl:grid-cols-4 2xl:grid-cols-5">
-                {products.map(product => <ProductCard key={product.id} product={product} searchQuery={highlightQuery} />)}
+                {products.map(product => <ProductCard key={product.id} product={product} />)}
               </div>
 
               {/* Pagination */}
