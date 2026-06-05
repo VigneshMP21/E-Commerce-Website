@@ -5,8 +5,31 @@ import { formatPrice, calculateDiscount, getImageUrl } from '../../utils/helpers
 import { useAuth } from '../../context/AuthContext';
 import { useWishlist } from '../../context/WishlistContext';
 import { useCart } from '../../context/CartContext';
+import api from '../../services/api';
 
-export default function ProductCard({ product, onWishlistChange }) {
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+function HighlightText({ text, query }) {
+  const value = String(text || '');
+  const tokens = String(query || '')
+    .split(/\s+/)
+    .map(token => token.trim())
+    .filter(token => token.length > 1);
+
+  if (!value || !tokens.length) return value;
+
+  const matcher = new RegExp(`(${tokens.map(escapeRegExp).join('|')})`, 'gi');
+  return value.split(matcher).map((part, index) => {
+    const matched = tokens.some(token => token.toLowerCase() === part.toLowerCase());
+    return matched ? (
+      <mark key={`${part}-${index}`} className="rounded bg-yellow-100 px-0.5 text-gray-950 dark:bg-yellow-300/30 dark:text-yellow-100">
+        {part}
+      </mark>
+    ) : part;
+  });
+}
+
+export default function ProductCard({ product, onWishlistChange, searchQuery }) {
   const discount = calculateDiscount(product.price, product.compare_price);
   const { user } = useAuth();
   const { isInWishlist, toggleWishlist } = useWishlist();
@@ -15,6 +38,7 @@ export default function ProductCard({ product, onWishlistChange }) {
   const location = useLocation();
   const inWishlist = isInWishlist(product.id);
   const loginRedirectState = { from: location.pathname + location.search };
+  const highlightQuery = product.highlight_query || product.corrected_search || searchQuery || product.search_query || '';
 
   const redirectToLogin = (message) => {
     toast.error(message);
@@ -56,13 +80,23 @@ export default function ProductCard({ product, onWishlistChange }) {
     }
   };
 
+  const trackSearchClick = () => {
+    if (!product.search_id) return;
+
+    api.post('/products/search/click', {
+      productId: product.id,
+      query: product.search_query || searchQuery || '',
+      searchId: product.search_id
+    }).catch(() => {});
+  };
+
   const HeartIcon = inWishlist ? HiHeart : HiOutlineHeart;
 
   return (
     <div className="group card overflow-hidden">
       {/* Image */}
       <div className="relative aspect-square overflow-hidden bg-gray-50 dark:bg-gray-800">
-        <Link to={`/product/${product.slug}`} className="block h-full">
+        <Link to={`/product/${product.slug}`} className="block h-full" onClick={trackSearchClick}>
           <img
             src={getImageUrl(product.images)}
             alt={product.name}
@@ -88,10 +122,12 @@ export default function ProductCard({ product, onWishlistChange }) {
       </div>
 
       {/* Content */}
-      <Link to={`/product/${product.slug}`} className="block p-4 space-y-2">
-        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">{product.category_name || product.brand || 'General'}</p>
+      <Link to={`/product/${product.slug}`} className="block p-4 space-y-2" onClick={trackSearchClick}>
+        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+          <HighlightText text={product.category_name || product.brand || 'General'} query={highlightQuery} />
+        </p>
         <h3 className="font-medium text-sm leading-tight line-clamp-2 group-hover:text-primary-600 transition-colors">
-          {product.name}
+          <HighlightText text={product.name} query={highlightQuery} />
         </h3>
 
         {/* Rating */}

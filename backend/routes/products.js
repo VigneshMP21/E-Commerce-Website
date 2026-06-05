@@ -7,7 +7,12 @@ const { authenticate, authorize } = require('../middleware/auth');
 const { optionalAuth } = require('../middleware/optionalAuth');
 const upload = require('../middleware/upload');
 
-router.get('/', productController.getProducts);
+router.get('/search/suggestions', optionalAuth, productController.getSearchSuggestions);
+router.get('/search/history', optionalAuth, productController.getSearchHistory);
+router.get('/search/trending', productController.getTrendingSearches);
+router.post('/search/click', optionalAuth, productController.recordSearchClick);
+
+router.get('/', optionalAuth, productController.getProducts);
 router.get('/featured', productController.getFeaturedProducts);
 router.get('/categories', productController.getCategories);
 router.get('/:slug', optionalAuth, productController.getProductBySlug);

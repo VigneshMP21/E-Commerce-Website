@@ -44,6 +44,7 @@ const initialProductForm = {
   categoryName: '',
   categoryImageUrl: '',
   brand: '',
+  tags: '',
   stockQuantity: '',
   sku: '',
   imageUrl: '',
@@ -62,6 +63,11 @@ const makeSlug = (value) => value
   .trim()
   .replace(/[^a-z0-9]+/g, '-')
   .replace(/(^-|-$)/g, '');
+
+const parseTags = (value) => value
+  .split(',')
+  .map(tag => tag.trim())
+  .filter(Boolean);
 
 const makeImageItem = (url, source = 'url', name = '') => ({
   id: `${source}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -685,6 +691,7 @@ export default function Admin() {
         comparePrice,
         categoryId,
         brand: productForm.brand.trim() || null,
+        tags: parseTags(productForm.tags),
         stockQuantity,
         sku: productForm.sku.trim() || null,
         images,
@@ -1023,6 +1030,10 @@ export default function Admin() {
             <div>
               <label className="block text-sm font-medium mb-1.5">Brand</label>
               <input className="input-field" value={productForm.brand} onChange={e => setProductForm({ ...productForm, brand: e.target.value })} placeholder="V Shop" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Tags</label>
+              <input className="input-field" value={productForm.tags} onChange={e => setProductForm({ ...productForm, tags: e.target.value })} placeholder="wireless, headphones, audio" />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1.5">Stock Quantity</label>

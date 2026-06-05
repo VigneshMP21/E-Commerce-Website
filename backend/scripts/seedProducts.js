@@ -316,6 +316,15 @@ const buildProducts = () => {
     const imageSet = imageSets[group.imageSet];
     const primaryImage = imageSet[groupIndex % imageSet.length];
     const secondaryImage = imageSet[(groupIndex + 2) % imageSet.length];
+    const salesCount = (globalIndex * 13) % 240;
+    const rating = money(3.8 + ((globalIndex % 12) * 0.09));
+    const reviewCount = 12 + ((globalIndex * 17) % 340);
+    const tags = [...new Set([
+      group.categorySlug,
+      group.categorySlug.replace(/-/g, ' '),
+      group.brand,
+      ...name.split(/\s+/).map(term => term.replace(/[^a-z0-9]/gi, '').toLowerCase()).filter(term => term.length > 2)
+    ])].slice(0, 12);
 
     return {
       name,
@@ -340,9 +349,11 @@ const buildProducts = () => {
       status: 'active',
       discountPercent,
       taxRate: group.imageSet === 'books' ? 0 : 18,
-      salesCount: (globalIndex * 13) % 240,
-      rating: money(3.8 + ((globalIndex % 12) * 0.09)),
-      reviewCount: 12 + ((globalIndex * 17) % 340)
+      salesCount,
+      rating,
+      reviewCount,
+      tags,
+      popularityScore: money(Math.min(95, 35 + (salesCount * 0.12) + (rating * 5) + (reviewCount * 0.03)))
     };
   }));
 };
@@ -427,9 +438,10 @@ const seedProducts = async () => {
       const result = await connection.query(
         `INSERT INTO products (
           name, slug, description, short_description, price, compare_price, cost_price, sku,
-          category_id, brand, stock_quantity, low_stock_threshold, images, specifications,
-          is_featured, is_active, status, discount_percent, tax_rate, sales_count, rating, review_count
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, true, $16, $17, $18, $19, $20, $21)
+          category_id, brand, tags, stock_quantity, low_stock_threshold, images, specifications,
+          is_featured, is_active, status, discount_percent, tax_rate, sales_count, rating, review_count,
+          popularity_score
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, true, $17, $18, $19, $20, $21, $22, $23)
         ON CONFLICT (slug) DO UPDATE SET
           name = EXCLUDED.name,
           description = EXCLUDED.description,
@@ -439,6 +451,7 @@ const seedProducts = async () => {
           cost_price = EXCLUDED.cost_price,
           category_id = EXCLUDED.category_id,
           brand = EXCLUDED.brand,
+          tags = EXCLUDED.tags,
           stock_quantity = EXCLUDED.stock_quantity,
           low_stock_threshold = EXCLUDED.low_stock_threshold,
           images = EXCLUDED.images,
@@ -450,7 +463,8 @@ const seedProducts = async () => {
           tax_rate = EXCLUDED.tax_rate,
           sales_count = EXCLUDED.sales_count,
           rating = EXCLUDED.rating,
-          review_count = EXCLUDED.review_count
+          review_count = EXCLUDED.review_count,
+          popularity_score = EXCLUDED.popularity_score
         RETURNING id`,
         [
           product.name,
@@ -463,6 +477,7 @@ const seedProducts = async () => {
           product.sku,
           categoryId,
           product.brand,
+          product.tags,
           product.stockQuantity,
           product.lowStockThreshold,
           JSON.stringify(product.images),
@@ -473,7 +488,8 @@ const seedProducts = async () => {
           product.taxRate,
           product.salesCount,
           product.rating,
-          product.reviewCount
+          product.reviewCount,
+          product.popularityScore
         ]
       );
 
